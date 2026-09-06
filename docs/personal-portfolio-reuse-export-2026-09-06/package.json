@@ -1,0 +1,52 @@
+{
+  "name": "personal-portfolio",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:e2e": "playwright test --project=chromium --project=webkit",
+    "test:e2e:edge": "playwright test --project=edge",
+    "test:e2e:all": "playwright test",
+    "test:e2e:headed": "playwright test --headed --project=chromium --project=webkit",
+    "test:all": "npm run test:unit && npm run test:e2e",
+    "preview": "vite preview",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "rename": "node scripts/rename-project.mjs",
+    "optimize:projects": "node scripts/optimize-project-images.mjs"
+  },
+  "dependencies": {
+    "framer-motion": "^12.34.2",
+    "gsap": "^3.14.2",
+    "lenis": "^1.3.17",
+    "lucide-react": "^0.564.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.13.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.2",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.0-canary-4842fbea-20260217",
+    "eslint-plugin-react-refresh": "^0.5.0",
+    "globals": "^16.5.0",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.7.4",
+    "sharp": "^0.34.4",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.56.0",
+    "vite": "^7.2.4",
+    "vitest": "^3.2.4"
+  }
+}

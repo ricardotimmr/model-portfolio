@@ -1,0 +1,3 @@
+filename,sortOrder,cover,archiveVisible,shootingVisible,orientation,alt,caption,layoutHint
+example-shoot-01.jpg,1,true,true,true,portrait,"Kurze sachliche Bildbeschreibung",,auto
+example-shoot-02.jpg,2,false,true,true,landscape,"Kurze sachliche Bildbeschreibung",,auto
