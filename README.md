@@ -39,9 +39,9 @@ Shooting-Seiten:
 | `/profile`       | PROFILE  | Model-Profil, Angaben, Kontakt und Repräsentation        |
 | `/shoots/[slug]` | Shooting | Eigenständige Editorial-Seite eines Shootings            |
 
-Die feste Navigation bleibt auf `INDEX`, `ARCHIVE`, `PROFILE` und `[2026]`
-reduziert. Shooting-Seiten sind Teil der Inhaltsstruktur, aber kein eigener
-Navigationspunkt.
+Die feste Navigation bleibt auf `INDEX`, `LOOKBOOK`, `PROFILE` und das automatisch
+ermittelte aktuelle Jahr reduziert, beispielsweise `[2026]`. Shooting-Seiten sind
+Teil der Inhaltsstruktur, aber kein eigener Navigationspunkt.
 
 ### INDEX
 
@@ -111,11 +111,13 @@ sind:
 Leere Felder werden nicht dargestellt. Auf Desktop stehen Portrait und Angaben
 nebeneinander, auf Mobile folgt der Text unter dem Bild.
 
-### `[2026]`-Overlay
+### Current-Year-Overlay
 
-`[2026]` öffnet keinen neuen Bereich, sondern legt ein kurzes Statement wie eine
-editoriale Bildunterschrift über die aktuelle Seite. Die Seite bleibt darunter
-sichtbar und wird lediglich zurückgenommen.
+Das aktuelle Jahr – beispielsweise `[2026]` – öffnet keinen neuen Bereich, sondern
+legt ein kurzes Statement wie eine editoriale Bildunterschrift über die aktuelle
+Seite. Die Jahreszahl wird aus dem aktuellen Datum erzeugt und wechselt bei einem
+Jahreswechsel automatisch. Die Seite bleibt unter dem Overlay sichtbar und wird
+lediglich zurückgenommen.
 
 Das Overlay lässt sich per Hintergrund-Klick, Escape und auf Mobile über eine
 erkennbare Schließen-Aktion beenden. Fokus und Scroll-Verhalten müssen dabei
@@ -234,7 +236,7 @@ Das erste vollständige Release umfasst:
 - responsive INDEX-Galerie
 - ARCHIVE und PROFILE
 - dynamische Shooting-Seiten
-- Session-Intro und `[2026]`-Overlay
+- Session-Intro und dynamisches Current-Year-Overlay
 - geschützten Studio-Login
 - Shooting-Verwaltung mit Entwurf und Veröffentlichung
 - Upload, Sortierung und Löschen von Bildern
