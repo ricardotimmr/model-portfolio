@@ -10,11 +10,15 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.next
+next-env.d.ts
+out
 *.local
 
 # Local concept notes and reference exports
 docs/
 content-preparation/
+public/media/
 
 # Editor directories and files
 .vscode/*
