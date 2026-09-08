@@ -151,6 +151,8 @@ export function Intro() {
   useLayoutEffect(() => {
     if (pathname !== '/' || hasStartedRef.current) return;
 
+    if (document.querySelector('[data-index-empty="true"]')) return;
+
     const hasPlayed = window.sessionStorage.getItem(SESSION_KEY) === 'true';
     if (hasPlayed) return;
 

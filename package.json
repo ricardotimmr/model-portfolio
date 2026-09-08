@@ -8,6 +8,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test:e2e": "playwright test",
+    "db:check": "tsx db/check.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx db/seed.ts",
+    "db:verify": "tsx db/verify.ts",
+    "db:studio": "drizzle-kit studio",
     "media:sync": "node scripts/sync-local-media.mjs",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
@@ -16,19 +23,25 @@
   "dependencies": {
     "@fontsource-variable/instrument-sans": "^5.2.8",
     "@fontsource/instrument-serif": "^5.2.8",
+    "@neondatabase/serverless": "^1.1.0",
+    "@next/env": "^16.3.4",
+    "drizzle-orm": "^0.45.2",
     "motion": "^13.2.0",
     "next": "^16.1.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.2",
-    "eslint-config-prettier": "^10.1.8",
     "eslint-config-next": "^16.1.6",
+    "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.7.4",
+    "tsx": "^4.23.13",
     "typescript": "~5.9.3"
   }
 }

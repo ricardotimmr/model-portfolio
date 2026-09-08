@@ -621,6 +621,24 @@ img {
   gap: clamp(46px, 7vw, 112px) clamp(16px, 2vw, 36px);
 }
 
+.portfolio-empty {
+  color: var(--mid-gray);
+  font-size: var(--text-sm);
+}
+
+.portfolio-empty--index {
+  display: grid;
+  place-content: center;
+  gap: 16px;
+  min-height: 100vh;
+  text-align: center;
+}
+
+.portfolio-empty--archive {
+  min-height: 32vh;
+  margin: 0;
+}
+
 .archive-item {
   display: block;
 }

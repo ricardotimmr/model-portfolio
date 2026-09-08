@@ -219,7 +219,7 @@ registration and no credential data in the frontend.
 
 ## Technical architecture
 
-The intended production architecture is:
+The production architecture is:
 
 - Next.js App Router and TypeScript
 - handwritten CSS for the public experience
@@ -230,9 +230,11 @@ The intended production architecture is:
 - Drizzle ORM as a lightweight TypeScript database layer
 - server-side sessions for the protected Studio
 
-Phase 1 already runs on Next.js with the App Router and static local content. The
-server-side work—authentication, uploads, and database access—will be introduced
-from Phase 2 onward.
+The public routes now read published shooting and photograph metadata from Neon
+Postgres through a server-only Drizzle query layer. The queries are cached for one
+hour and the shooting routes are statically generated from published database
+records. Local image paths remain in the seeded photo records until Phase 3 moves
+the files to Vercel Blob.
 
 Motion for React is imported from `motion/react` for the session intro,
 current-year overlay, and subtle page transitions. The more complex gallery motion
@@ -261,7 +263,7 @@ draft images, advanced image processing, analytics, and content scheduling.
 
 1. Phase 0 — prepare real content and three representative shootings: complete
 2. Phase 1 — build and validate the static public experience: complete
-3. Phase 2 — connect the Postgres data model and dynamic content
+3. Phase 2 — connect the Postgres data model and dynamic content: complete
 4. Phase 3 — integrate image storage and the upload workflow
 5. Phase 4 — implement Studio authentication
 6. Phase 5 — build the shooting editor and publishing workflow
@@ -278,11 +280,12 @@ support that experience rather than determine its design.
 - Next.js App Router, TypeScript, Instrument Sans/Serif, and handwritten CSS
 - responsive INDEX gallery with looping, dragging, wheel control, momentum,
   parallax, centering, keyboard control, and position restoration
-- LOOKBOOK, PROFILE, and three statically generated shooting pages
+- Neon Postgres schema, migrations, idempotent seed, and public query layer
+- database-driven INDEX, LOOKBOOK, and three statically generated shooting pages
 - English as the default language and German as the secondary UI/content language
 - session intro, dynamic current year, and editorial year overlay
 - local photographs excluded from the repository through `.gitignore`
-- `npm audit` reports no known vulnerabilities
+- the production dependency audit reports no known vulnerabilities
 
 ## Project structure
 
@@ -292,6 +295,7 @@ support that experience rather than determine its design.
 ├── components/
 │   ├── providers/        Shared client-side context providers
 │   └── public/           Components for the public portfolio
+├── db/                    Drizzle schema, migrations, seed, checks, and queries
 ├── lib/                  Content, translations, types, and shared utilities
 ├── public/               Public static assets
 │   └── media/            Locally synced photographs; ignored by Git
@@ -315,9 +319,41 @@ Node.js `^20.19.0`, `^22.13.0`, or `>=24` and npm are required.
 
 ```bash
 npm install
+npx vercel link
+npx vercel env pull .env.local --environment=development
+npm run db:migrate
+npm run db:seed
 npm run media:sync
 npm run dev
 ```
+
+The Vercel project must have a Neon Marketplace database connected to its
+Development environment before pulling `.env.local`. The application uses the
+pooled `DATABASE_URL` at runtime and the direct `DATABASE_URL_UNPOOLED` for
+migrations. Both `.env.local` and `.vercel/` are ignored and must never be
+committed.
+
+Useful database commands:
+
+```bash
+npm run db:check     # verify the configured connection without changing data
+npm run db:generate  # generate SQL after a schema change
+npm run db:migrate   # apply pending migrations
+npm run db:seed      # idempotently restore the three initial shootings
+npm run db:verify    # test publication filters and database constraints
+npm run db:studio    # inspect data through Drizzle Studio
+```
+
+Install Playwright's versioned Chromium once before running browser tests:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+If the Playwright CDN is temporarily unavailable and Google Chrome is installed,
+the local fallback is
+`PLAYWRIGHT_USE_SYSTEM_CHROME=true npm run test:e2e`.
 
 `npm run media:sync` copies private local photographs from
 `content-preparation/` to `public/media/`. Both directories are ignored and are
@@ -329,6 +365,8 @@ Before committing implementation changes, run:
 ```bash
 npm run lint
 npm run format:check
+npm run db:verify
+npm run test:e2e
 npm run build
 ```
 

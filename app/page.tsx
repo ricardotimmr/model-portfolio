@@ -1,6 +1,11 @@
 import { IndexGallery } from '@/components/public/IndexGallery';
-import { featuredShootings } from '@/lib/content';
+import { IndexEmptyState } from '@/components/public/IndexEmptyState';
+import { getPublishedIndexShootings } from '@/db/queries';
 
-export default function IndexPage() {
-  return <IndexGallery shootings={featuredShootings} />;
+export default async function IndexPage() {
+  const shootings = await getPublishedIndexShootings();
+
+  if (shootings.length === 0) return <IndexEmptyState />;
+
+  return <IndexGallery shootings={shootings} />;
 }

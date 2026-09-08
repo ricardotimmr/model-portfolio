@@ -5,13 +5,17 @@ import Link from 'next/link';
 import { Fragment } from 'react';
 import { Footer } from '@/components/public/Footer';
 import { useLanguage } from '@/components/providers/LanguageProvider';
-import type { PortfolioPhoto, Shooting } from '@/lib/content';
+import type {
+  PortfolioPhoto,
+  Shooting,
+  ShootingNavigationItem,
+} from '@/lib/content';
 import { localize, messages } from '@/lib/i18n';
 
 type ShootingEditorialProps = {
   shooting: Shooting;
-  previous: Shooting;
-  next: Shooting;
+  previous: ShootingNavigationItem;
+  next: ShootingNavigationItem;
 };
 
 type EditorialRow = {

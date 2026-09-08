@@ -3,14 +3,18 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useLanguage } from '@/components/providers/LanguageProvider';
-import { archivePhotos } from '@/lib/content';
+import type { ArchiveItem } from '@/lib/content';
 
-export function ArchiveGrid() {
+type ArchiveGridProps = {
+  items: ArchiveItem[];
+};
+
+export function ArchiveGrid({ items }: ArchiveGridProps) {
   const { language } = useLanguage();
 
   return (
     <div className="archive-grid">
-      {archivePhotos.map(({ photo, shooting }, index) => (
+      {items.map(({ photo, shooting }, index) => (
         <Link
           className="archive-item"
           href={`/shoots/${shooting.slug}`}
