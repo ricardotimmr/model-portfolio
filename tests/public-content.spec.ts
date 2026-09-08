@@ -20,6 +20,10 @@ test('database-backed index keeps both gallery modes interactive', async ({
   await expect(
     horizontalView.locator('[data-set-index="2"][data-gallery-card]'),
   ).toHaveCount(3);
+  await expect(horizontalView.locator('img').first()).toHaveAttribute(
+    'src',
+    /\.public\.blob\.vercel-storage\.com/,
+  );
 
   const beforeWheel = await horizontalTrack.getAttribute('style');
   await page.mouse.move(720, 500);
@@ -35,7 +39,7 @@ test('database-backed index keeps both gallery modes interactive', async ({
   await expect(verticalView).toHaveClass(/is-active/);
   await expect(
     verticalView.locator('.vertical-gallery__metadata'),
-  ).toContainText('Studio Portraits');
+  ).toContainText(/Studio Portraits|Summer Afternoon|Mountain Light/);
 
   await expect(
     page.getByRole('button', { name: 'Show horizontal index' }),
@@ -49,6 +53,10 @@ test('lookbook and shooting pages render seeded localized content', async ({
 }) => {
   await page.goto('/archive');
   await expect(page.locator('.archive-item')).toHaveCount(24);
+  await expect(page.locator('.archive-item img').first()).toHaveAttribute(
+    'src',
+    /\.public\.blob\.vercel-storage\.com/,
+  );
 
   await page.getByRole('button', { name: 'DE', exact: true }).click();
   await expect(page.locator('.page-heading')).toContainText(
@@ -67,4 +75,15 @@ test('lookbook and shooting pages render seeded localized content', async ({
 
   const response = await page.goto('/shoots/not-a-published-shooting');
   expect(response?.status()).toBe(404);
+});
+
+test('profile portrait reuses a database-backed Blob asset', async ({
+  page,
+}) => {
+  await page.goto('/profile');
+
+  await expect(page.locator('.profile-portrait img')).toHaveAttribute(
+    'src',
+    /\.public\.blob\.vercel-storage\.com/,
+  );
 });

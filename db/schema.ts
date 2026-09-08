@@ -96,6 +96,9 @@ export const photos = pgTable(
     url: text('url').notNull(),
     storagePath: text('storage_path'),
     originalFilename: text('original_filename'),
+    contentType: text('content_type'),
+    fileSize: integer('file_size'),
+    blobEtag: text('blob_etag'),
     width: integer('width').notNull(),
     height: integer('height').notNull(),
     aspectRatio: doublePrecision('aspect_ratio').notNull(),
@@ -114,6 +117,7 @@ export const photos = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }),
   },
   (table) => [
     uniqueIndex('photos_shooting_sort_order_unique').on(
@@ -121,6 +125,7 @@ export const photos = pgTable(
       table.sortOrder,
     ),
     index('photos_shooting_idx').on(table.shootingId),
+    uniqueIndex('photos_storage_path_unique').on(table.storagePath),
     index('photos_public_archive_idx').on(
       table.archiveVisible,
       table.shootingId,
@@ -129,6 +134,10 @@ export const photos = pgTable(
     check('photos_width_check', sql`${table.width} > 0`),
     check('photos_height_check', sql`${table.height} > 0`),
     check('photos_aspect_ratio_check', sql`${table.aspectRatio} > 0`),
+    check(
+      'photos_file_size_check',
+      sql`${table.fileSize} is null or ${table.fileSize} > 0`,
+    ),
     check('photos_sort_order_check', sql`${table.sortOrder} >= 0`),
   ],
 );

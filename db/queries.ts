@@ -90,7 +90,7 @@ const readPublishedIndexShootings = unstable_cache(
       mapShooting(shooting, [mapPhoto(cover)]),
     );
   },
-  ['published-index-shootings'],
+  ['published-index-shootings-blob-v1'],
   {
     revalidate: PUBLIC_CACHE_SECONDS,
     tags: ['shootings', 'photos', 'index'],
@@ -122,7 +122,7 @@ const readPublishedArchive = unstable_cache(
       },
     }));
   },
-  ['published-archive'],
+  ['published-archive-blob-v1'],
   {
     revalidate: PUBLIC_CACHE_SECONDS,
     tags: ['shootings', 'photos', 'archive'],
@@ -152,7 +152,7 @@ const readPublishedShootingBySlug = unstable_cache(
 
     return mapShooting(shooting, shootingPhotos.map(mapPhoto));
   },
-  ['published-shooting-by-slug'],
+  ['published-shooting-by-slug-blob-v1'],
   {
     revalidate: PUBLIC_CACHE_SECONDS,
     tags: ['shootings', 'photos'],
@@ -171,7 +171,7 @@ const readPublishedShootingNavigation = unstable_cache(
         asc(shootings.title),
       );
   },
-  ['published-shooting-navigation'],
+  ['published-shooting-navigation-blob-v1'],
   {
     revalidate: PUBLIC_CACHE_SECONDS,
     tags: ['shootings'],
@@ -188,10 +188,35 @@ const readPublishedShootingSlugs = unstable_cache(
 
     return rows.map(({ slug }) => slug);
   },
-  ['published-shooting-slugs'],
+  ['published-shooting-slugs-blob-v1'],
   {
     revalidate: PUBLIC_CACHE_SECONDS,
     tags: ['shootings'],
+  },
+);
+
+const readPublishedProfilePortrait = unstable_cache(
+  async (): Promise<PortfolioPhoto | null> => {
+    const [row] = await db
+      .select({ photo: photos })
+      .from(photos)
+      .innerJoin(shootings, eq(photos.shootingId, shootings.id))
+      .where(
+        and(
+          eq(shootings.slug, 'studio-portraits'),
+          eq(shootings.status, 'published'),
+          eq(photos.originalFilename, 'studio-portraits-08.jpg'),
+          eq(photos.shootingVisible, true),
+        ),
+      )
+      .limit(1);
+
+    return row ? mapPhoto(row.photo) : null;
+  },
+  ['published-profile-portrait-blob-v1'],
+  {
+    revalidate: PUBLIC_CACHE_SECONDS,
+    tags: ['shootings', 'photos', 'profile'],
   },
 );
 
@@ -202,3 +227,4 @@ export const getPublishedShootingNavigation = cache(
   readPublishedShootingNavigation,
 );
 export const getPublishedShootingSlugs = cache(readPublishedShootingSlugs);
+export const getPublishedProfilePortrait = cache(readPublishedProfilePortrait);

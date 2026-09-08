@@ -230,11 +230,13 @@ The production architecture is:
 - Drizzle ORM as a lightweight TypeScript database layer
 - server-side sessions for the protected Studio
 
-The public routes now read published shooting and photograph metadata from Neon
+The public routes read published shooting and photograph metadata from Neon
 Postgres through a server-only Drizzle query layer. The queries are cached for one
 hour and the shooting routes are statically generated from published database
-records. Local image paths remain in the seeded photo records until Phase 3 moves
-the files to Vercel Blob.
+records. All 24 shooting photographs live in a public Vercel Blob store; Postgres
+holds their canonical URLs, storage paths, dimensions, MIME types, sizes, and
+ETags. The profile portrait deliberately reuses one of those assets instead of
+uploading a duplicate.
 
 Motion for React is imported from `motion/react` for the session intro,
 current-year overlay, and subtle page transitions. The more complex gallery motion
@@ -264,7 +266,7 @@ draft images, advanced image processing, analytics, and content scheduling.
 1. Phase 0 — prepare real content and three representative shootings: complete
 2. Phase 1 — build and validate the static public experience: complete
 3. Phase 2 — connect the Postgres data model and dynamic content: complete
-4. Phase 3 — integrate image storage and the upload workflow
+4. Phase 3 — integrate image storage and prepare the upload workflow: complete
 5. Phase 4 — implement Studio authentication
 6. Phase 5 — build the shooting editor and publishing workflow
 7. Phase 6 — refine motion, mobile behavior, and visual details
@@ -282,9 +284,12 @@ support that experience rather than determine its design.
   parallax, centering, keyboard control, and position restoration
 - Neon Postgres schema, migrations, idempotent seed, and public query layer
 - database-driven INDEX, LOOKBOOK, and three statically generated shooting pages
+- 24 validated photographs stored in Vercel Blob with database-backed metadata
+- server-only validation, finalization, and guarded deletion foundations for the
+  future Studio upload workflow
 - English as the default language and German as the secondary UI/content language
 - session intro, dynamic current year, and editorial year overlay
-- local photographs excluded from the repository through `.gitignore`
+- local photographs excluded from both Git and Vercel deployment bundles
 - the production dependency audit reports no known vulnerabilities
 
 ## Project structure
@@ -296,7 +301,7 @@ support that experience rather than determine its design.
 │   ├── providers/        Shared client-side context providers
 │   └── public/           Components for the public portfolio
 ├── db/                    Drizzle schema, migrations, seed, checks, and queries
-├── lib/                  Content, translations, types, and shared utilities
+├── lib/                  Content, translations, image validation, and Blob utilities
 ├── public/               Public static assets
 │   └── media/            Locally synced photographs; ignored by Git
 ├── scripts/              Repository and local-content utilities
@@ -327,11 +332,13 @@ npm run media:sync
 npm run dev
 ```
 
-The Vercel project must have a Neon Marketplace database connected to its
-Development environment before pulling `.env.local`. The application uses the
-pooled `DATABASE_URL` at runtime and the direct `DATABASE_URL_UNPOOLED` for
-migrations. Both `.env.local` and `.vercel/` are ignored and must never be
-committed.
+The Vercel project must have both its Neon database and public Blob store connected
+to Production, Preview, and Development before pulling `.env.local`. The
+application uses the pooled `DATABASE_URL` at runtime and the direct
+`DATABASE_URL_UNPOOLED` for migrations. `BLOB_READ_WRITE_TOKEN` is server-only.
+Both `.env.local` and `.vercel/` are ignored and must never be committed.
+`.vercelignore` separately excludes private source images and local media from
+direct CLI deployments.
 
 Useful database commands:
 
@@ -344,6 +351,20 @@ npm run db:verify    # test publication filters and database constraints
 npm run db:studio    # inspect data through Drizzle Studio
 ```
 
+Useful image-storage commands:
+
+```bash
+npm run blob:check    # reconcile every Photo row with its Blob asset
+npm run blob:migrate  # validate and preview the local migration without writes
+npm run blob:migrate -- --execute  # perform the idempotent migration
+```
+
+The migration validates the actual image payload, dimensions, inventory, and
+25 MB upload limit before writing. Existing files use deterministic paths, so the
+command can be rerun without producing duplicates. Future browser uploads remain
+disabled until Studio authentication is implemented; an unauthenticated upload or
+deletion endpoint would expose the store.
+
 Install Playwright's versioned Chromium once before running browser tests:
 
 ```bash
@@ -355,10 +376,9 @@ If the Playwright CDN is temporarily unavailable and Google Chrome is installed,
 the local fallback is
 `PLAYWRIGHT_USE_SYSTEM_CHROME=true npm run test:e2e`.
 
-`npm run media:sync` copies private local photographs from
-`content-preparation/` to `public/media/`. Both directories are ignored and are
-not pushed. A deployment will therefore display the images only after Phase 3
-replaces these local paths with Blob URLs.
+`npm run media:sync` remains available only for inspecting the private source
+photographs locally. Runtime pages and deployments use Blob URLs and do not depend
+on ignored files under `content-preparation/` or `public/media/`.
 
 Before committing implementation changes, run:
 
@@ -366,6 +386,8 @@ Before committing implementation changes, run:
 npm run lint
 npm run format:check
 npm run db:verify
+npm run blob:check
+npm run test:unit
 npm run test:e2e
 npm run build
 ```

@@ -107,8 +107,10 @@ async function seed() {
           )
           on conflict (id) do update set
             shooting_id = excluded.shooting_id,
-            url = excluded.url,
-            storage_path = excluded.storage_path,
+            url = case
+              when photos.storage_path is not null then photos.url
+              else excluded.url
+            end,
             original_filename = excluded.original_filename,
             width = excluded.width,
             height = excluded.height,

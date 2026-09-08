@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test:unit": "tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
     "db:check": "tsx db/check.ts",
     "db:generate": "drizzle-kit generate",
@@ -15,6 +16,8 @@
     "db:seed": "tsx db/seed.ts",
     "db:verify": "tsx db/verify.ts",
     "db:studio": "drizzle-kit studio",
+    "blob:check": "tsx scripts/check-blob.ts",
+    "blob:migrate": "tsx scripts/migrate-media-to-blob.ts",
     "media:sync": "node scripts/sync-local-media.mjs",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
@@ -25,11 +28,13 @@
     "@fontsource/instrument-serif": "^5.2.8",
     "@neondatabase/serverless": "^1.1.0",
     "@next/env": "^16.3.4",
+    "@vercel/blob": "^2.8.0",
     "drizzle-orm": "^0.45.2",
     "motion": "^13.2.0",
     "next": "^16.1.6",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
