@@ -55,6 +55,10 @@ export const shootings: Shooting[] = [
     slug: 'studio-portraits',
     title: 'Studio Portraits',
     year: 2026,
+    description: {
+      en: 'A clean studio series exploring expression, movement and the quiet details that emerge between posed moments.',
+      de: 'Eine klare Studioserie über Ausdruck, Bewegung und die leisen Details, die zwischen inszenierten Momenten entstehen.',
+    },
     featuredOnIndex: true,
     indexOrder: 1,
     coverPhotoId: 'studio-portraits-08',
@@ -146,6 +150,10 @@ export const shootings: Shooting[] = [
     slug: 'summer-afternoon',
     title: 'Summer Afternoon',
     year: 2026,
+    description: {
+      en: 'An unplanned afternoon shaped by soft light, easy conversation and portraits that feel immediate and close.',
+      de: 'Ein ungeplanter Nachmittag, geprägt von weichem Licht, leichten Gesprächen und Porträts, die unmittelbar und nah wirken.',
+    },
     featuredOnIndex: true,
     indexOrder: 2,
     coverPhotoId: 'summer-afternoon-04',
@@ -222,6 +230,10 @@ export const shootings: Shooting[] = [
     title: 'Mountain Light',
     year: 2026,
     location: { en: 'The Alps', de: 'Die Alpen' },
+    description: {
+      en: 'A spontaneous alpine series set between open skies, still water and the shifting light of a day in the mountains.',
+      de: 'Eine spontane alpine Serie zwischen offenem Himmel, stillem Wasser und dem wechselnden Licht eines Tages in den Bergen.',
+    },
     featuredOnIndex: true,
     indexOrder: 3,
     coverPhotoId: 'mountain-light-06',

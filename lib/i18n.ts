@@ -17,6 +17,9 @@ export const messages = {
     next: 'Next series',
     backToArchive: 'Lookbook',
     archiveIntro: 'Selected photographs from published series.',
+    showVerticalIndex: 'Show vertical index',
+    showHorizontalIndex: 'Show horizontal index',
+    scroll: 'Scroll to explore',
   },
   de: {
     index: 'Index',
@@ -34,6 +37,9 @@ export const messages = {
     next: 'Nächste Serie',
     backToArchive: 'Lookbook',
     archiveIntro: 'Ausgewählte Fotografien aus veröffentlichten Serien.',
+    showVerticalIndex: 'Vertikalen Index anzeigen',
+    showHorizontalIndex: 'Horizontalen Index anzeigen',
+    scroll: 'Scrollen zum Entdecken',
   },
 } as const;
 

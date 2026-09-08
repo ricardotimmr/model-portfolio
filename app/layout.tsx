@@ -2,6 +2,7 @@ import '@fontsource-variable/instrument-sans';
 import '@fontsource/instrument-serif/400.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { IndexViewProvider } from '@/components/providers/IndexViewProvider';
 import { Intro } from '@/components/public/Intro';
 import { Navbar } from '@/components/public/Navbar';
 import { LanguageProvider } from '@/components/providers/LanguageProvider';
@@ -23,12 +24,14 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <LanguageProvider>
-          <a className="skip-link" href="#main-content">
-            Skip to content
-          </a>
-          <Navbar />
-          {children}
-          <Intro />
+          <IndexViewProvider>
+            <a className="skip-link" href="#main-content">
+              Skip to content
+            </a>
+            <Navbar />
+            {children}
+            <Intro />
+          </IndexViewProvider>
         </LanguageProvider>
       </body>
     </html>

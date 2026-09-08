@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { useIndexView } from '@/components/providers/IndexViewProvider';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import { messages } from '@/lib/i18n';
 import { YearOverlay } from './YearOverlay';
@@ -10,6 +11,11 @@ import { YearOverlay } from './YearOverlay';
 export function Navbar() {
   const pathname = usePathname();
   const { language, setLanguage } = useLanguage();
+  const {
+    mode: indexViewMode,
+    isTransitioning: isIndexTransitioning,
+    toggleMode: toggleIndexViewMode,
+  } = useIndexView();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isYearOpen, setIsYearOpen] = useState(false);
   const yearButtonRef = useRef<HTMLButtonElement>(null);
@@ -62,17 +68,39 @@ export function Navbar() {
           className={`site-nav__links ${isMenuOpen ? 'is-open' : ''}`}
           aria-label="Primary navigation"
         >
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={link.active ? 'is-active' : undefined}
-              aria-current={link.active ? 'page' : undefined}
-              onClick={closeMenu}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {links.map((link) =>
+            link.href === '/' && link.active ? (
+              <button
+                key={link.href}
+                type="button"
+                className="site-nav__link is-active"
+                aria-current="page"
+                aria-disabled={isIndexTransitioning}
+                disabled={isIndexTransitioning}
+                aria-label={
+                  indexViewMode === 'horizontal'
+                    ? messages[language].showVerticalIndex
+                    : messages[language].showHorizontalIndex
+                }
+                onClick={() => {
+                  closeMenu();
+                  toggleIndexViewMode();
+                }}
+              >
+                {link.label}
+              </button>
+            ) : (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`site-nav__link ${link.active ? 'is-active' : ''}`}
+                aria-current={link.active ? 'page' : undefined}
+                onClick={closeMenu}
+              >
+                {link.label}
+              </Link>
+            ),
+          )}
 
           <div className="language-switch" aria-label="Language">
             <button

@@ -1,17 +1,19 @@
 'use client';
 
+import { motion, useReducedMotion } from 'motion/react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-  type WheelEvent,
 } from 'react';
+import { useIndexView } from '@/components/providers/IndexViewProvider';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import type { Shooting } from '@/lib/content';
 import { getCover } from '@/lib/content';
@@ -22,21 +24,70 @@ import {
   normalizeWheelDeltaToPixels,
 } from '@/lib/gallery-physics';
 import { messages } from '@/lib/i18n';
+import { VerticalIndexGallery } from './VerticalIndexGallery';
 
 type IndexGalleryProps = { shootings: Shooting[] };
+type HorizontalIndexGalleryProps = IndexGalleryProps & {
+  initialKey: string;
+  onActiveItemChange: (slug: string, key: string) => void;
+  preferInitialItem: boolean;
+  isActive: boolean;
+  isTransitioning: boolean;
+};
+type TransitionRect = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+type TransitionImageTransform = {
+  x: number;
+  y: number;
+  scale: number;
+};
+type TransitionCard = {
+  key: string;
+  src: string;
+  from: TransitionRect;
+  to: TransitionRect;
+  fromImage: TransitionImageTransform;
+  toImage: TransitionImageTransform;
+};
 type CardMetric = {
   element: HTMLElement;
   image: HTMLImageElement;
+  key: string;
   center: number;
   halfWidth: number;
+  lastShift: number;
+  isActive: boolean;
 };
 
-const REPEATED_SET_COUNT = 7;
+const REPEATED_SET_COUNT = 5;
 const MIDDLE_SET_INDEX = Math.floor(REPEATED_SET_COUNT / 2);
 const POSITION_KEY = 'model-portfolio:index-position';
 const HINT_KEY = 'model-portfolio:gallery-used';
 const DRAG_CLICK_THRESHOLD = 6;
 const CENTER_THRESHOLD = 5;
+const CARD_IMAGE_PARALLAX_MAX_SHIFT_PX = 112;
+const CARD_IMAGE_PARALLAX_SCALE = 1.5;
+const TRANSITION_CARD_RADIUS = 2;
+
+function getImageTransform(image: HTMLImageElement): TransitionImageTransform {
+  const transform = window.getComputedStyle(image).transform;
+  if (!transform || transform === 'none') return { x: 0, y: 0, scale: 1 };
+
+  try {
+    const matrix = new DOMMatrixReadOnly(transform);
+    return {
+      x: matrix.m41,
+      y: matrix.m42,
+      scale: Math.hypot(matrix.m11, matrix.m12),
+    };
+  } catch {
+    return { x: 0, y: 0, scale: 1 };
+  }
+}
 
 function supportsPointer(event: ReactPointerEvent<HTMLDivElement>) {
   if (!event.isPrimary) return false;
@@ -44,7 +95,14 @@ function supportsPointer(event: ReactPointerEvent<HTMLDivElement>) {
   return event.pointerType === 'touch' || event.pointerType === 'pen';
 }
 
-export function IndexGallery({ shootings }: IndexGalleryProps) {
+function HorizontalIndexGallery({
+  shootings,
+  initialKey,
+  onActiveItemChange,
+  preferInitialItem,
+  isActive,
+  isTransitioning,
+}: HorizontalIndexGalleryProps) {
   const router = useRouter();
   const { language } = useLanguage();
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -63,7 +121,16 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
   const velocityRef = useRef(0);
   const draggedRef = useRef(false);
   const focusAnimationRef = useRef(false);
+  const hasPositionedRef = useRef(false);
+  const initialKeyRef = useRef(initialKey);
+  const preferInitialItemRef = useRef(preferInitialItem);
+  const centeredCardKeyRef = useRef(initialKey);
+  const centeredSlugRef = useRef(shootings[0]?.slug ?? '');
+  const actionAvailableRef = useRef(false);
+  const hasUsedGalleryRef = useRef(false);
+  const isActiveRef = useRef(isActive);
   const [isDragging, setIsDragging] = useState(false);
+  const [centeredCardKey, setCenteredCardKey] = useState(initialKey);
   const [centeredSlug, setCenteredSlug] = useState(shootings[0]?.slug ?? '');
   const [isActionAvailable, setIsActionAvailable] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -74,17 +141,26 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
     [shootings],
   );
 
+  const persistPosition = useCallback(() => {
+    window.sessionStorage.setItem(POSITION_KEY, String(currentXRef.current));
+  }, []);
+
   const normalizePosition = useCallback(() => {
     const setWidth = setWidthRef.current;
-    if (!setWidth) return;
-    const anchor = setWidth * MIDDLE_SET_INDEX;
-    while (currentXRef.current < anchor - setWidth) {
+    const viewport = viewportRef.current;
+    if (!setWidth || !viewport) return;
+    const rangeStart = setWidth * MIDDLE_SET_INDEX;
+    const rangeEnd = rangeStart + setWidth;
+    let contentCenter = currentXRef.current + viewport.clientWidth / 2;
+    while (contentCenter < rangeStart) {
       currentXRef.current += setWidth;
       targetXRef.current += setWidth;
+      contentCenter += setWidth;
     }
-    while (currentXRef.current > anchor + setWidth) {
+    while (contentCenter >= rangeEnd) {
       currentXRef.current -= setWidth;
       targetXRef.current -= setWidth;
+      contentCenter -= setWidth;
     }
   }, []);
 
@@ -94,20 +170,38 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
     if (!viewport || !track) return;
 
     track.style.transform = `translate3d(${-currentXRef.current}px, 0, 0)`;
-    window.sessionStorage.setItem(POSITION_KEY, String(currentXRef.current));
 
     const viewportCenter = currentXRef.current + viewport.clientWidth / 2;
+    const viewportStart = currentXRef.current;
+    const viewportEnd = viewportStart + viewport.clientWidth;
+    const influenceRange = viewport.clientWidth * 0.64;
     let nearest: CardMetric | undefined;
     let nearestDistance = Number.POSITIVE_INFINITY;
 
     for (const metric of metricsRef.current) {
       const distance = metric.center - viewportCenter;
+      const isActive =
+        metric.center + metric.halfWidth >= viewportStart - influenceRange &&
+        metric.center - metric.halfWidth <= viewportEnd + influenceRange;
+
+      if (metric.isActive !== isActive) {
+        metric.isActive = isActive;
+        metric.image.style.willChange = isActive ? 'transform' : 'auto';
+      }
+
       const ratio = Math.max(
         -1,
-        Math.min(1, distance / Math.max(1, viewport.clientWidth * 0.7)),
+        Math.min(1, distance / Math.max(1, influenceRange)),
       );
-      metric.image.style.transform = `translate3d(${(-ratio * 58).toFixed(2)}px, 0, 0) scale(1.3)`;
-      metric.element.classList.remove('is-centered');
+      const shift = isActive ? -ratio * CARD_IMAGE_PARALLAX_MAX_SHIFT_PX : 0;
+      if (
+        !Number.isFinite(metric.lastShift) ||
+        Math.abs(shift - metric.lastShift) > 0.35
+      ) {
+        metric.lastShift = shift;
+        metric.image.style.transform = `translate3d(${shift.toFixed(2)}px, 0, 0) scale(${CARD_IMAGE_PARALLAX_SCALE})`;
+      }
+
       if (Math.abs(distance) < nearestDistance) {
         nearest = metric;
         nearestDistance = Math.abs(distance);
@@ -115,16 +209,32 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
     }
 
     if (nearest) {
-      nearest.element.classList.add('is-centered');
+      if (centeredCardKeyRef.current !== nearest.key) {
+        centeredCardKeyRef.current = nearest.key;
+        setCenteredCardKey(nearest.key);
+        const slug = nearest.element.dataset.shootingSlug;
+        if (slug && isActiveRef.current) {
+          onActiveItemChange(slug, nearest.key);
+        }
+      }
+
       const actionAvailable = nearestDistance <= nearest.halfWidth;
-      setIsActionAvailable((current) =>
-        current === actionAvailable ? current : actionAvailable,
-      );
+      if (actionAvailableRef.current !== actionAvailable) {
+        actionAvailableRef.current = actionAvailable;
+        setIsActionAvailable(actionAvailable);
+      }
+
       const slug = nearest.element.dataset.shootingSlug;
-      if (slug)
-        setCenteredSlug((current) => (current === slug ? current : slug));
+      if (slug && centeredSlugRef.current !== slug) {
+        centeredSlugRef.current = slug;
+        setCenteredSlug(slug);
+      }
     }
-  }, []);
+  }, [onActiveItemChange]);
+
+  useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
 
   const runAnimation = useCallback(() => {
     const distance = targetXRef.current - currentXRef.current;
@@ -133,6 +243,7 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
       focusAnimationRef.current = false;
       normalizePosition();
       updateVisuals();
+      persistPosition();
       animationRef.current = null;
       return;
     }
@@ -145,7 +256,7 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
     // The animation loop intentionally schedules its own next frame.
     // eslint-disable-next-line react-hooks/immutability
     animationRef.current = window.requestAnimationFrame(runAnimation);
-  }, [normalizePosition, updateVisuals]);
+  }, [normalizePosition, persistPosition, updateVisuals]);
 
   const startAnimation = useCallback(() => {
     if (animationRef.current === null) {
@@ -153,10 +264,12 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
     }
   }, [runAnimation]);
 
-  const markUsed = () => {
+  const markUsed = useCallback(() => {
+    if (hasUsedGalleryRef.current) return;
+    hasUsedGalleryRef.current = true;
     setShowHint(false);
     window.sessionStorage.setItem(HINT_KEY, 'true');
-  };
+  }, []);
 
   const focusCard = useCallback(
     (card: HTMLElement) => {
@@ -189,20 +302,24 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
       }
       markUsed();
     },
-    [focusCard, router],
+    [focusCard, markUsed, router],
   );
 
   useEffect(() => {
+    const hasUsedGallery = window.sessionStorage.getItem(HINT_KEY) === 'true';
+    hasUsedGalleryRef.current = hasUsedGallery;
     // Session storage is an external browser source and is only available after hydration.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setShowHint(window.sessionStorage.getItem(HINT_KEY) !== 'true');
+    setShowHint(!hasUsedGallery);
     const firstSet = firstSetRef.current;
     const viewport = viewportRef.current;
     const track = trackRef.current;
     if (!firstSet || !viewport || !track) return;
 
     const measure = () => {
-      setWidthRef.current = firstSet.scrollWidth;
+      // offsetWidth reflects the logical flex layout. scrollWidth also includes
+      // Motion's temporary projection overflow while switching orientations.
+      setWidthRef.current = firstSet.offsetWidth;
       metricsRef.current = Array.from(
         track.querySelectorAll<HTMLElement>('[data-gallery-card]'),
       )
@@ -212,8 +329,11 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
             ? {
                 element,
                 image,
+                key: element.dataset.galleryKey ?? '',
                 center: element.offsetLeft + element.offsetWidth / 2,
                 halfWidth: element.offsetWidth / 2,
+                lastShift: Number.NaN,
+                isActive: false,
               }
             : null;
         })
@@ -223,16 +343,27 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
       const firstCard = firstSet.querySelector<HTMLElement>(
         '[data-gallery-card]',
       );
-      const initial =
-        Number.isFinite(stored) && stored > 0
-          ? stored
-          : setWidthRef.current * MIDDLE_SET_INDEX +
-            (firstCard?.offsetWidth ?? 0) / 2 -
-            viewport.clientWidth / 2;
-      currentXRef.current = initial;
-      targetXRef.current = initial;
+      if (!hasPositionedRef.current) {
+        const preferredCard = track.querySelector<HTMLElement>(
+          `[data-gallery-key="${initialKeyRef.current}"]`,
+        );
+        const initial =
+          preferInitialItemRef.current && preferredCard
+            ? preferredCard.offsetLeft +
+              preferredCard.offsetWidth / 2 -
+              viewport.clientWidth / 2
+            : Number.isFinite(stored) && stored > 0
+              ? stored
+              : setWidthRef.current * MIDDLE_SET_INDEX +
+                (firstCard?.offsetWidth ?? 0) / 2 -
+                viewport.clientWidth / 2;
+        currentXRef.current = initial;
+        targetXRef.current = initial;
+        hasPositionedRef.current = true;
+      }
       normalizePosition();
       updateVisuals();
+      viewport.dataset.galleryReady = 'true';
     };
 
     measure();
@@ -240,37 +371,71 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
     observer.observe(firstSet);
     window.addEventListener('resize', measure);
     return () => {
+      delete viewport.dataset.galleryReady;
       observer.disconnect();
       window.removeEventListener('resize', measure);
-      if (animationRef.current !== null)
+      if (animationRef.current !== null) {
         window.cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      persistPosition();
     };
-  }, [normalizePosition, updateVisuals]);
+  }, [normalizePosition, persistPosition, slides, updateVisuals]);
 
-  const onWheel = (event: WheelEvent<HTMLDivElement>) => {
-    const viewportWidth = viewportRef.current?.clientWidth ?? window.innerWidth;
-    const dx = normalizeWheelDeltaToPixels(
-      event.deltaX,
-      event.deltaMode,
-      viewportWidth,
+  useLayoutEffect(() => {
+    if (isActive || isTransitioning) return;
+    const viewport = viewportRef.current;
+    const track = trackRef.current;
+    if (!viewport || !track || !setWidthRef.current) return;
+    const preferredCard = track.querySelector<HTMLElement>(
+      `[data-gallery-key="${initialKey}"]`,
     );
-    const dy = normalizeWheelDeltaToPixels(
-      event.deltaY,
-      event.deltaMode,
-      viewportWidth,
-    );
-    const delta = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
-    if (!delta) return;
-    event.preventDefault();
-    focusAnimationRef.current = false;
-    targetXRef.current +=
-      Math.max(
-        -GALLERY_SCROLL_MAX_WHEEL_DELTA,
-        Math.min(GALLERY_SCROLL_MAX_WHEEL_DELTA, delta),
-      ) * GALLERY_SCROLL_WHEEL_DRAG_FACTOR;
-    markUsed();
-    startAnimation();
-  };
+    if (!preferredCard) return;
+    const position =
+      preferredCard.offsetLeft +
+      preferredCard.offsetWidth / 2 -
+      viewport.clientWidth / 2;
+    currentXRef.current = position;
+    targetXRef.current = position;
+    normalizePosition();
+    updateVisuals();
+  }, [initialKey, isActive, isTransitioning, normalizePosition, updateVisuals]);
+
+  const handleWheel = useCallback(
+    (event: globalThis.WheelEvent) => {
+      const viewportWidth =
+        viewportRef.current?.clientWidth ?? window.innerWidth;
+      const dx = normalizeWheelDeltaToPixels(
+        event.deltaX,
+        event.deltaMode,
+        viewportWidth,
+      );
+      const dy = normalizeWheelDeltaToPixels(
+        event.deltaY,
+        event.deltaMode,
+        viewportWidth,
+      );
+      const delta = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
+      if (!delta) return;
+      event.preventDefault();
+      focusAnimationRef.current = false;
+      targetXRef.current +=
+        Math.max(
+          -GALLERY_SCROLL_MAX_WHEEL_DELTA,
+          Math.min(GALLERY_SCROLL_MAX_WHEEL_DELTA, delta),
+        ) * GALLERY_SCROLL_WHEEL_DRAG_FACTOR;
+      markUsed();
+      startAnimation();
+    },
+    [markUsed, startAnimation],
+  );
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    viewport.addEventListener('wheel', handleWheel, { passive: false });
+    return () => viewport.removeEventListener('wheel', handleWheel);
+  }, [handleWheel]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!supportsPointer(event) || !viewportRef.current) return;
@@ -353,13 +518,12 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
 
   return (
     <main
-      id="main-content"
+      id={isActive ? 'main-content' : undefined}
       className={`index-gallery ${isDragging ? 'is-dragging' : ''}`}
     >
       <div
         ref={viewportRef}
         className="index-gallery__viewport"
-        onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -376,40 +540,54 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
               key={setIndex}
               aria-hidden={setIndex !== MIDDLE_SET_INDEX}
             >
-              {slides.map(({ shooting, cover }, slideIndex) => (
-                <article
-                  key={`${setIndex}-${shooting.id}`}
-                  tabIndex={setIndex === MIDDLE_SET_INDEX ? 0 : -1}
-                  className={`index-gallery__card index-gallery__card--${cover.orientation}`}
-                  data-gallery-card
-                  data-set-index={setIndex}
-                  data-slide-index={slideIndex}
-                  data-shooting-slug={shooting.slug}
-                  aria-label={`${shooting.title}, ${shooting.year}`}
-                  role="link"
-                  onClick={(event) => {
-                    if (!draggedRef.current) activateCard(event.currentTarget);
-                  }}
-                  onKeyDown={(event) => onKeyDown(event, event.currentTarget)}
-                >
-                  <Image
-                    className="index-gallery__image"
-                    src={cover.src}
-                    width={cover.width}
-                    height={cover.height}
-                    alt={
-                      setIndex === MIDDLE_SET_INDEX ? cover.alt[language] : ''
+              {slides.map(({ shooting, cover }, slideIndex) => {
+                const galleryKey = `${setIndex}-${slideIndex}`;
+                return (
+                  <motion.article
+                    key={`${setIndex}-${shooting.id}-${slideIndex}`}
+                    tabIndex={
+                      isActive && setIndex === MIDDLE_SET_INDEX ? 0 : -1
                     }
-                    sizes="(max-width: 768px) 76vw, (max-width: 1100px) 52vw, 42vw"
-                    loading="eager"
-                    draggable={false}
-                  />
-                  <span className="index-gallery__caption">
-                    <span>{shooting.title}</span>
-                    <span>{shooting.year}</span>
-                  </span>
-                </article>
-              ))}
+                    className={`index-gallery__card ${centeredCardKey === galleryKey ? 'is-centered' : ''}`}
+                    data-gallery-card
+                    data-gallery-key={galleryKey}
+                    data-set-index={setIndex}
+                    data-slide-index={slideIndex}
+                    data-shooting-slug={shooting.slug}
+                    aria-label={`${shooting.title}, ${shooting.year}`}
+                    role="link"
+                    onClick={(event) => {
+                      if (!draggedRef.current)
+                        activateCard(event.currentTarget);
+                    }}
+                    onKeyDown={(event) => onKeyDown(event, event.currentTarget)}
+                  >
+                    <Image
+                      className="index-gallery__image"
+                      src={cover.src}
+                      width={cover.width}
+                      height={cover.height}
+                      alt={
+                        setIndex === MIDDLE_SET_INDEX ? cover.alt[language] : ''
+                      }
+                      sizes="(max-width: 760px) 76vw, (max-width: 1024px) 52vw, 440px"
+                      quality={68}
+                      loading={
+                        setIndex === MIDDLE_SET_INDEX ||
+                        setIndex === MIDDLE_SET_INDEX - 1
+                          ? 'eager'
+                          : 'lazy'
+                      }
+                      decoding="async"
+                      draggable={false}
+                    />
+                    <span className="index-gallery__caption">
+                      <span>{shooting.title}</span>
+                      <span>{shooting.year}</span>
+                    </span>
+                  </motion.article>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -428,5 +606,188 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
         <p className="index-gallery__hint">‹ {messages[language].drag} ›</p>
       ) : null}
     </main>
+  );
+}
+
+export function IndexGallery({ shootings }: IndexGalleryProps) {
+  const { mode, revision, isTransitioning, completeTransition } =
+    useIndexView();
+  const prefersReducedMotion = useReducedMotion();
+  const [activeItem, setActiveItem] = useState(() => ({
+    slug: shootings[0]?.slug ?? '',
+    key: `${MIDDLE_SET_INDEX}-0`,
+  }));
+  const [transitionCards, setTransitionCards] = useState<TransitionCard[]>([]);
+  const isSwitchingModeRef = useRef(isTransitioning);
+  const previousModeRef = useRef(mode);
+  const stageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    isSwitchingModeRef.current = isTransitioning;
+    if (!isTransitioning) return;
+    const timeout = window.setTimeout(
+      () => completeTransition(revision),
+      prefersReducedMotion ? 160 : 1050,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [completeTransition, isTransitioning, prefersReducedMotion, revision]);
+
+  const handleActiveItemChange = useCallback((slug: string, key: string) => {
+    if (isSwitchingModeRef.current) return;
+    const slideIndex = Number(key.split('-')[1]);
+    const canonicalKey = `${MIDDLE_SET_INDEX}-${Number.isFinite(slideIndex) ? slideIndex : 0}`;
+    setActiveItem((current) =>
+      current.slug === slug && current.key === canonicalKey
+        ? current
+        : { slug, key: canonicalKey },
+    );
+  }, []);
+
+  useLayoutEffect(() => {
+    const previousMode = previousModeRef.current;
+    if (previousMode === mode || !isTransitioning) return;
+    const stage = stageRef.current;
+    const sourceLayer = stage?.querySelector<HTMLElement>(
+      `[data-index-view="${previousMode}"]`,
+    );
+    const targetLayer = stage?.querySelector<HTMLElement>(
+      `[data-index-view="${mode}"]`,
+    );
+    const sourceCards = Array.from(
+      sourceLayer?.querySelectorAll<HTMLElement>('[data-gallery-card]') ?? [],
+    );
+    const targetCards = Array.from(
+      targetLayer?.querySelectorAll<HTMLElement>('[data-gallery-card]') ?? [],
+    );
+    const sourceCenter = sourceLayer?.querySelector<HTMLElement>(
+      '[data-gallery-card].is-centered',
+    );
+    const targetCenter =
+      targetLayer?.querySelector<HTMLElement>(
+        '[data-gallery-card].is-centered',
+      ) ??
+      targetLayer?.querySelector<HTMLElement>(
+        `[data-gallery-key="${activeItem.key}"]`,
+      );
+    const sourceCenterIndex = sourceCenter
+      ? sourceCards.indexOf(sourceCenter)
+      : -1;
+    const targetCenterIndex = targetCenter
+      ? targetCards.indexOf(targetCenter)
+      : -1;
+    const nextCards: TransitionCard[] = [];
+
+    if (sourceCenterIndex >= 0 && targetCenterIndex >= 0) {
+      for (
+        let offset = -TRANSITION_CARD_RADIUS;
+        offset <= TRANSITION_CARD_RADIUS;
+        offset += 1
+      ) {
+        const source = sourceCards[sourceCenterIndex + offset];
+        const target = targetCards[targetCenterIndex + offset];
+        const sourceImage = source?.querySelector<HTMLImageElement>('img');
+        const targetImage = target?.querySelector<HTMLImageElement>('img');
+        if (!source || !target || !sourceImage || !targetImage) continue;
+        const sourceRect = source.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        nextCards.push({
+          key: `${revision}-${offset}`,
+          src: sourceImage.currentSrc || sourceImage.src,
+          from: {
+            left: sourceRect.left,
+            top: sourceRect.top,
+            width: sourceRect.width,
+            height: sourceRect.height,
+          },
+          to: {
+            left: targetRect.left,
+            top: targetRect.top,
+            width: targetRect.width,
+            height: targetRect.height,
+          },
+          fromImage: getImageTransform(sourceImage),
+          toImage: getImageTransform(targetImage),
+        });
+      }
+    }
+
+    // Both persistent galleries are measured before the browser paints the new mode.
+    setTransitionCards(nextCards);
+    previousModeRef.current = mode;
+  }, [activeItem.key, isTransitioning, mode, revision]);
+
+  return (
+    <div
+      ref={stageRef}
+      className={`index-gallery-stage ${isTransitioning && transitionCards.length > 0 ? 'has-transition-cards' : ''}`}
+      data-index-view={mode}
+    >
+      <div
+        className={`index-gallery-view ${mode === 'horizontal' ? 'is-active' : ''} ${mode !== 'horizontal' && isTransitioning ? 'is-transition-source' : ''} ${isTransitioning ? 'is-transitioning' : ''}`}
+        data-index-view="horizontal"
+        aria-hidden={mode !== 'horizontal'}
+      >
+        <HorizontalIndexGallery
+          shootings={shootings}
+          initialKey={activeItem.key}
+          onActiveItemChange={handleActiveItemChange}
+          preferInitialItem={revision > 0}
+          isActive={mode === 'horizontal'}
+          isTransitioning={isTransitioning}
+        />
+      </div>
+
+      <div
+        className={`index-gallery-view ${mode === 'vertical' ? 'is-active' : ''} ${mode !== 'vertical' && isTransitioning ? 'is-transition-source' : ''} ${isTransitioning ? 'is-transitioning' : ''}`}
+        data-index-view="vertical"
+        aria-hidden={mode !== 'vertical'}
+      >
+        <VerticalIndexGallery
+          shootings={shootings}
+          initialKey={activeItem.key}
+          onActiveItemChange={handleActiveItemChange}
+          isActive={mode === 'vertical'}
+          isTransitioning={isTransitioning}
+        />
+      </div>
+
+      {isTransitioning && transitionCards.length > 0 ? (
+        <div className="index-gallery-transition" aria-hidden="true">
+          {transitionCards.map((card) => (
+            <motion.div
+              key={card.key}
+              className="index-gallery-transition__card"
+              initial={{
+                left: card.from.left,
+                top: card.from.top,
+                width: card.from.width,
+                height: card.from.height,
+              }}
+              animate={{
+                left: card.to.left,
+                top: card.to.top,
+                width: card.to.width,
+                height: card.to.height,
+              }}
+              transition={{
+                duration: prefersReducedMotion ? 0.12 : 0.92,
+                ease: [0.4, 0, 0.2, 1],
+              }}
+            >
+              <motion.div
+                className="index-gallery-transition__image"
+                style={{ backgroundImage: `url("${card.src}")` }}
+                initial={card.fromImage}
+                animate={card.toImage}
+                transition={{
+                  duration: prefersReducedMotion ? 0.12 : 0.92,
+                  ease: [0.4, 0, 0.2, 1],
+                }}
+              />
+            </motion.div>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }

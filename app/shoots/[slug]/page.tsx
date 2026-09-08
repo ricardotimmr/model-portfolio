@@ -17,7 +17,9 @@ export async function generateMetadata({
   const cover = getCover(shooting);
   return {
     title: shooting.title,
-    description: `${shooting.title}, ${shooting.year} — Zoe Schmidt portfolio series.`,
+    description:
+      shooting.description?.en ??
+      `${shooting.title}, ${shooting.year} — Zoe Schmidt portfolio series.`,
     openGraph: {
       images: [{ url: cover.src, width: cover.width, height: cover.height }],
     },

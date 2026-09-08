@@ -60,15 +60,19 @@ export function ShootingEditorial({
         <p className="eyebrow">Series / {shooting.year}</p>
         <h1>{shooting.title}</h1>
         <div className="shooting-header__meta">
-          {shooting.location ? (
-            <span>{localize(shooting.location, language)}</span>
-          ) : null}
           {shooting.description ? (
-            <p>{localize(shooting.description, language)}</p>
+            <p className="shooting-header__description">
+              {localize(shooting.description, language)}
+            </p>
           ) : null}
-          {shooting.photographer ? (
-            <span>Photography — {shooting.photographer}</span>
-          ) : null}
+          <div className="shooting-header__facts">
+            {shooting.location ? (
+              <span>{localize(shooting.location, language)}</span>
+            ) : null}
+            {shooting.photographer ? (
+              <span>Photography — {shooting.photographer}</span>
+            ) : null}
+          </div>
         </div>
       </header>
 

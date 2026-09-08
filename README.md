@@ -30,12 +30,12 @@ are intentionally avoided.
 
 The public website consists of three main sections and dynamic shooting pages:
 
-| Route            | Section  | Purpose                                                  |
-| ---------------- | -------- | -------------------------------------------------------- |
-| `/`              | INDEX    | Curated shootings in a horizontal infinite gallery       |
-| `/archive`       | LOOKBOOK | All published photographs approved for the archive       |
-| `/profile`       | PROFILE  | Model profile, measurements, contact, and representation |
-| `/shoots/[slug]` | Shooting | A dedicated editorial page for one shooting              |
+| Route            | Section  | Purpose                                                   |
+| ---------------- | -------- | --------------------------------------------------------- |
+| `/`              | INDEX    | Curated shootings in switchable horizontal/vertical views |
+| `/archive`       | LOOKBOOK | All published photographs approved for the archive        |
+| `/profile`       | PROFILE  | Model profile, measurements, contact, and representation  |
+| `/shoots/[slug]` | Shooting | A dedicated editorial page for one shooting               |
 
 The fixed navigation is limited to `INDEX`, `LOOKBOOK`, `PROFILE`, and the
 automatically determined current year, for example `[2026]`. Shooting pages are
@@ -43,9 +43,10 @@ part of the content structure but are not separate navigation items.
 
 ### INDEX
 
-The home page is the portfolio and occupies exactly one viewport. Instead of
-vertical page scrolling, it presents a horizontal, seemingly infinite gallery of
-selected shootings.
+The home page is the portfolio and occupies exactly one viewport. It opens as a
+horizontal, seemingly infinite gallery of selected shootings. Selecting the
+already-active `INDEX` navigation item toggles between that view and a vertical
+gallery.
 
 Each card represents a shooting and displays its selected cover image. The gallery
 supports:
@@ -59,8 +60,18 @@ supports:
 - restoration of the gallery position after returning
 - keyboard navigation as an equivalent input method
 
-The horizontal gallery remains intact on mobile, where touch dragging replaces
-hover as the primary interaction.
+The vertical mode keeps the same infinite navigation, cover cards,
+centered-card behavior, hover reveal, route opening, and image parallax, but
+enlarges the cards for a more immersive view. The active shooting title remains
+fixed to the left of the centered image while its short description remains
+fixed to the right. Both texts transition when a different card crosses the
+viewport center. Both gallery layouts stay mounted and preloaded. On a mode
+change, five measured transition cards move between the two arrangements while
+preserving their live image crops; the centered card stays anchored and grows in
+place without reloading the gallery.
+
+Both modes remain available on mobile. Touch dragging controls the horizontal
+view, while native vertical scrolling controls the vertical view.
 
 ### LOOKBOOK
 
@@ -81,9 +92,10 @@ not part of the MVP.
 
 ### Shooting pages
 
-Each shooting is presented as a vertical editorial under `/shoots/[slug]`. The
-title, year, location, description, and credits are only displayed when they have
-been provided.
+Each shooting is presented as a vertical editorial under `/shoots/[slug]`. Its
+short bilingual description is top-aligned beside the large two-line title.
+Year, location, description, and credits are only displayed when they have been
+provided.
 
 The image flow combines large landscape photographs, individually offset portraits,
 and portrait pairs. For the MVP, this variation is derived automatically from image
@@ -120,17 +132,21 @@ visible close action on mobile. Focus and scroll behavior must remain accessible
 
 ### Session intro
 
-On the first visit of a browser session, a roughly 1.2 to 1.4 second
-“Photographic Slit Reveal” animation is shown:
+On the first INDEX visit of a browser session, a five-frame gallery reveal is
+shown:
 
-1. black viewport with the model name centered
-2. a narrow horizontal crop of the first gallery image
-3. vertical expansion of the crop into the complete INDEX page
-4. subtle reveal of the navigation
+1. a blank white viewport with five small outlined squares in the center
+2. the squares fill one after another while the initial gallery images decode
+3. all five frames expand into the exact positions of the initially visible
+   gallery cards—three complete cards and two cropped edge cards on desktop
+4. the photographs fade into the frames while they expand
+5. once the frames settle, the white layer fades away to hand control to the
+   real gallery
 
-The intro uses `sessionStorage` so it only plays once per session. It does not
-artificially wait for loading progress and provides a shorter reduced-motion
-variant.
+The target rectangles are measured from the rendered gallery instead of being
+hard-coded, so the transition adapts to the current viewport. A bounded loading
+fallback prevents the intro from blocking the page. `sessionStorage` limits it
+to once per session, and a reduced-motion variant removes the large expansion.
 
 ## Design system
 
