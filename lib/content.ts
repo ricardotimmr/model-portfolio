@@ -14,6 +14,8 @@ export type PortfolioPhoto = {
   caption?: LocalizedText;
   archiveVisible: boolean;
   shootingVisible: boolean;
+  layoutHint?:
+    'auto' | 'full' | 'wide' | 'medium' | 'left' | 'right' | 'pair-next';
 };
 
 export type Shooting = {

@@ -97,9 +97,9 @@ short bilingual description is top-aligned beside the large two-line title.
 Year, location, description, and credits are only displayed when they have been
 provided.
 
-The image flow combines large landscape photographs, individually offset portraits,
-and portrait pairs. For the MVP, this variation is derived automatically from image
-orientation and order. Explicit layout hints can be added later.
+The image flow combines large landscape photographs, individually offset
+portraits, and portrait pairs. This variation is derived automatically from image
+orientation and order unless an explicit Studio layout hint overrides it.
 
 `PREVIOUS SERIES`, `LOOKBOOK`, and `NEXT SERIES` connect the editorials at the
 end of each page.
@@ -195,11 +195,11 @@ least one image. A cover is additionally required for any shooting shown on INDE
 
 ## Studio
 
-A protected area under `/studio` will make content management possible without
-code changes. Its interface remains neutral and monochrome, but prioritizes clarity
+A protected area under `/studio` provides the authenticated boundary for content
+management. Its interface remains neutral and monochrome, but prioritizes clarity
 and usability over the extreme restraint of the public website.
 
-Planned workflow:
+The Studio workflow is:
 
 1. sign in to the Studio
 2. create a shooting and enter its metadata
@@ -213,9 +213,11 @@ Planned workflow:
 Published content automatically appears on its shooting page, in LOOKBOOK, and—if
 selected—on INDEX. Drafts remain publicly inaccessible.
 
-The hidden Studio link in the footer is only a visual choice. Real server-side
-authentication and authorization protect every mutation; there is no public
-registration and no credential data in the frontend.
+The discreet Studio link in the footer is only a visual choice. Better Auth stores
+the single administrator's scrypt password hash and revocable sessions in Neon.
+Public registration and password reset are disabled, login attempts are
+database-rate-limited, and every current or future write must authorize the
+session again on the server. No credential data is stored in the frontend.
 
 ## Technical architecture
 
@@ -228,7 +230,7 @@ The production architecture is:
 - Vercel Blob for photographs
 - Postgres, preferably Neon, for metadata and publication state
 - Drizzle ORM as a lightweight TypeScript database layer
-- server-side sessions for the protected Studio
+- Better Auth with database-backed, revocable Studio sessions
 
 The public routes read published shooting and photograph metadata from Neon
 Postgres through a server-only Drizzle query layer. The queries are cached for one
@@ -257,9 +259,9 @@ The first complete release includes:
 - performance, accessibility, SEO, and social-sharing foundations
 - deployment to Vercel
 
-Possible later additions include lookbook filters, manual image layouts,
-shared-element transitions, a comp-card download, multiple administrators, private
-draft images, advanced image processing, analytics, and content scheduling.
+Possible later additions include lookbook filters, shared-element transitions, a
+comp-card download, multiple administrators, private draft images, advanced image
+processing, analytics, and content scheduling.
 
 ## Roadmap
 
@@ -267,8 +269,8 @@ draft images, advanced image processing, analytics, and content scheduling.
 2. Phase 1 — build and validate the static public experience: complete
 3. Phase 2 — connect the Postgres data model and dynamic content: complete
 4. Phase 3 — integrate image storage and prepare the upload workflow: complete
-5. Phase 4 — implement Studio authentication
-6. Phase 5 — build the shooting editor and publishing workflow
+5. Phase 4 — implement and verify Studio authentication: complete
+6. Phase 5 — build the shooting editor and publishing workflow: complete
 7. Phase 6 — refine motion, mobile behavior, and visual details
 8. Phase 7 — complete performance, accessibility, SEO, and deployment work
 
@@ -285,12 +287,20 @@ support that experience rather than determine its design.
 - Neon Postgres schema, migrations, idempotent seed, and public query layer
 - database-driven INDEX, LOOKBOOK, and three statically generated shooting pages
 - 24 validated photographs stored in Vercel Blob with database-backed metadata
-- server-only validation, finalization, and guarded deletion foundations for the
-  future Studio upload workflow
+- server-only validation, payload inspection, finalization, and guarded deletion
+  for the Studio upload workflow
+- Better Auth login with one Neon-backed administrator, revocable 12-hour
+  sessions, persistent rate limiting, and server-authorized write foundations
+- authenticated Studio dashboard, draft creation, bilingual metadata editor,
+  direct multi-image Blob uploads, photo ordering, visibility and layout controls,
+  cover/INDEX curation, saved draft preview, publishing state transitions, and
+  deliberate photo/shooting deletion
 - English as the default language and German as the secondary UI/content language
 - session intro, dynamic current year, and editorial year overlay
 - local photographs excluded from both Git and Vercel deployment bundles
-- the production dependency audit reports no known vulnerabilities
+- the dependency audit reports four moderate development-tool findings in the
+  legacy esbuild copy used by Drizzle Kit; the suggested automated fix is an
+  incompatible Drizzle Kit downgrade, so it is intentionally not applied
 
 ## Project structure
 
@@ -299,7 +309,8 @@ support that experience rather than determine its design.
 ├── app/                  Next.js routes, layouts, metadata, and global styles
 ├── components/
 │   ├── providers/        Shared client-side context providers
-│   └── public/           Components for the public portfolio
+│   ├── public/           Components for the public portfolio
+│   └── studio/           Private Studio authentication and editor components
 ├── db/                    Drizzle schema, migrations, seed, checks, and queries
 ├── lib/                  Content, translations, image validation, and Blob utilities
 ├── public/               Public static assets
@@ -361,9 +372,10 @@ npm run blob:migrate -- --execute  # perform the idempotent migration
 
 The migration validates the actual image payload, dimensions, inventory, and
 25 MB upload limit before writing. Existing files use deterministic paths, so the
-command can be rerun without producing duplicates. Future browser uploads remain
-disabled until Studio authentication is implemented; an unauthenticated upload or
-deletion endpoint would expose the store.
+command can be rerun without producing duplicates. Browser uploads use a protected
+direct-to-Blob flow with per-file progress, cancellation, retry, payload
+inspection, and authenticated database finalization. Upload finalization and
+deletion require a valid Studio session before accessing Blob or Postgres.
 
 Install Playwright's versioned Chromium once before running browser tests:
 

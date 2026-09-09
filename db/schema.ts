@@ -62,6 +62,7 @@ export const shootings = pgTable(
     featuredOnIndex: boolean('featured_on_index').notNull().default(false),
     indexOrder: integer('index_order'),
     status: shootingStatus('status').notNull().default('draft'),
+    revision: integer('revision').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

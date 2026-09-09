@@ -15,6 +15,20 @@
       "when": 1788892582428,
       "tag": "0001_organic_corsair",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788903812113,
+      "tag": "0002_bizarre_thunderbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788934546452,
+      "tag": "0003_talented_lorna_dane",
+      "breakpoints": true
     }
   ]
 }

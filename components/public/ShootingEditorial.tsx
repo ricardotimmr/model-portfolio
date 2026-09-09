@@ -14,8 +14,9 @@ import { localize, messages } from '@/lib/i18n';
 
 type ShootingEditorialProps = {
   shooting: Shooting;
-  previous: ShootingNavigationItem;
-  next: ShootingNavigationItem;
+  previous?: ShootingNavigationItem;
+  next?: ShootingNavigationItem;
+  studioPreview?: boolean;
 };
 
 type EditorialRow = {
@@ -26,15 +27,47 @@ type EditorialRow = {
 function buildEditorialRows(shooting: Shooting) {
   const photos = shooting.photos.filter((photo) => photo.shootingVisible);
   const rows: EditorialRow[] = [];
-  if (photos[0]) rows.push({ kind: 'hero', photos: [photos[0]] });
-
   let portraitSide = 0;
-  for (let index = 1; index < photos.length; index += 1) {
+  for (let index = 0; index < photos.length; index += 1) {
     const current = photos[index];
     const next = photos[index + 1];
+
+    if (current.layoutHint === 'pair-next' && next) {
+      rows.push({ kind: 'pair', photos: [current, next] });
+      index += 1;
+      continue;
+    }
+    if (current.layoutHint === 'full') {
+      rows.push({ kind: 'hero', photos: [current] });
+      continue;
+    }
+    if (current.layoutHint === 'wide') {
+      rows.push({ kind: 'wide', photos: [current] });
+      continue;
+    }
+    if (current.layoutHint === 'left') {
+      rows.push({ kind: 'single-left', photos: [current] });
+      continue;
+    }
+    if (current.layoutHint === 'right') {
+      rows.push({ kind: 'single-right', photos: [current] });
+      continue;
+    }
+    if (current.layoutHint === 'medium') {
+      rows.push({
+        kind: portraitSide++ % 2 === 0 ? 'single-left' : 'single-right',
+        photos: [current],
+      });
+      continue;
+    }
+    if (index === 0) {
+      rows.push({ kind: 'hero', photos: [current] });
+      continue;
+    }
     if (
       current.orientation === 'portrait' &&
-      next?.orientation === 'portrait'
+      next?.orientation === 'portrait' &&
+      (!next.layoutHint || next.layoutHint === 'auto')
     ) {
       rows.push({ kind: 'pair', photos: [current, next] });
       index += 1;
@@ -54,6 +87,7 @@ export function ShootingEditorial({
   shooting,
   previous,
   next,
+  studioPreview = false,
 }: ShootingEditorialProps) {
   const { language } = useLanguage();
   const rows = buildEditorialRows(shooting);
@@ -106,14 +140,16 @@ export function ShootingEditorial({
         ))}
       </div>
 
-      <nav className="series-nav" aria-label="Series navigation">
-        <Link href={`/shoots/${previous.slug}`}>
-          ← {messages[language].previous}
-        </Link>
-        <Link href="/archive">{messages[language].backToArchive}</Link>
-        <Link href={`/shoots/${next.slug}`}>{messages[language].next} →</Link>
-      </nav>
-      <Footer />
+      {previous && next ? (
+        <nav className="series-nav" aria-label="Series navigation">
+          <Link href={`/shoots/${previous.slug}`}>
+            ← {messages[language].previous}
+          </Link>
+          <Link href="/archive">{messages[language].backToArchive}</Link>
+          <Link href={`/shoots/${next.slug}`}>{messages[language].next} →</Link>
+        </nav>
+      ) : null}
+      {studioPreview ? null : <Footer />}
     </main>
   );
 }

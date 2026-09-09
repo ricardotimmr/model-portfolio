@@ -1,7 +1,8 @@
 import 'server-only';
 
 import { drizzle } from 'drizzle-orm/neon-http';
-import * as schema from './schema';
+import * as authSchema from './auth-schema';
+import * as contentSchema from './schema';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -11,4 +12,6 @@ if (!databaseUrl) {
   );
 }
 
-export const db = drizzle(databaseUrl, { schema });
+export const db = drizzle(databaseUrl, {
+  schema: { ...contentSchema, ...authSchema },
+});

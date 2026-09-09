@@ -18,23 +18,31 @@
     "db:studio": "drizzle-kit studio",
     "blob:check": "tsx scripts/check-blob.ts",
     "blob:migrate": "tsx scripts/migrate-media-to-blob.ts",
+    "auth:create-admin": "tsx scripts/create-studio-admin.ts",
+    "auth:setup-secret": "tsx scripts/setup-auth-secret.ts",
+    "auth:update-email": "tsx scripts/update-studio-admin-email.ts",
+    "auth:check": "tsx scripts/check-studio-auth.ts",
     "media:sync": "node scripts/sync-local-media.mjs",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "rename": "node scripts/rename-project.mjs"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.7.3",
+    "@dnd-kit/react": "^0.5.0",
     "@fontsource-variable/instrument-sans": "^5.2.8",
     "@fontsource/instrument-serif": "^5.2.8",
     "@neondatabase/serverless": "^1.1.0",
     "@next/env": "^16.3.4",
     "@vercel/blob": "^2.8.0",
+    "better-auth": "^1.7.3",
     "drizzle-orm": "^0.45.2",
     "motion": "^13.2.0",
     "next": "^16.1.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "sharp": "^0.35.4"
+    "sharp": "^0.35.4",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

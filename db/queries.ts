@@ -38,6 +38,7 @@ function mapPhoto(row: PhotoRow): PortfolioPhoto {
     caption: localizedText(row.captionEn, row.captionDe),
     archiveVisible: row.archiveVisible,
     shootingVisible: row.shootingVisible,
+    layoutHint: row.layoutHint,
   };
 }
 

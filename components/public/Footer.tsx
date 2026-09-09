@@ -16,9 +16,13 @@ export function Footer() {
         {messages[language].instagram}
       </a>
       <Link href="/profile">{messages[language].contact}</Link>
-      <span className="site-footer__studio" aria-hidden="true">
+      <Link
+        className="site-footer__studio"
+        href="/studio/login"
+        aria-label="Studio login"
+      >
         ·
-      </span>
+      </Link>
     </footer>
   );
 }
