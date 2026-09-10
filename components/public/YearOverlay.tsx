@@ -1,10 +1,11 @@
 'use client';
 
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, type RefObject } from 'react';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import { yearStatement } from '@/lib/content';
 import { localize, messages } from '@/lib/i18n';
+import { PUBLIC_MOTION } from '@/lib/public-motion';
 
 type YearOverlayProps = {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export function YearOverlay({
 }: YearOverlayProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -49,7 +51,11 @@ export function YearOverlay({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.28 }}
+          transition={{
+            duration: prefersReducedMotion
+              ? PUBLIC_MOTION.reduced
+              : PUBLIC_MOTION.metadata,
+          }}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) onClose();
           }}
@@ -64,7 +70,12 @@ export function YearOverlay({
             initial={{ y: 18, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -12, opacity: 0 }}
-            transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+            transition={{
+              duration: prefersReducedMotion
+                ? PUBLIC_MOTION.reduced
+                : PUBLIC_MOTION.route,
+              ease: PUBLIC_MOTION.easeOut,
+            }}
           >
             <p id="year-overlay-title" className="eyebrow">
               [{year}]

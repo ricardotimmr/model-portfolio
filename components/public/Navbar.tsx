@@ -107,7 +107,10 @@ export function Navbar() {
               type="button"
               className={language === 'en' ? 'is-active' : undefined}
               aria-pressed={language === 'en'}
-              onClick={() => setLanguage('en')}
+              onClick={() => {
+                setLanguage('en');
+                closeMenu();
+              }}
             >
               EN
             </button>
@@ -116,7 +119,10 @@ export function Navbar() {
               type="button"
               className={language === 'de' ? 'is-active' : undefined}
               aria-pressed={language === 'de'}
-              onClick={() => setLanguage('de')}
+              onClick={() => {
+                setLanguage('de');
+                closeMenu();
+              }}
             >
               DE
             </button>

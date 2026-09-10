@@ -13,7 +13,9 @@ import {
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import type { Shooting } from '@/lib/content';
 import { getCover } from '@/lib/content';
+import { getSafeParallaxShift } from '@/lib/gallery-physics';
 import { messages } from '@/lib/i18n';
+import { PUBLIC_MOTION } from '@/lib/public-motion';
 
 type VerticalIndexGalleryProps = {
   shootings: Shooting[];
@@ -116,7 +118,12 @@ export function VerticalIndexGallery({
         -1,
         Math.min(1, distance / Math.max(1, influenceRange)),
       );
-      const shift = isNear ? -ratio * IMAGE_PARALLAX_MAX_SHIFT_PX : 0;
+      const maxImageShift = getSafeParallaxShift(
+        rect.height,
+        IMAGE_PARALLAX_SCALE,
+        IMAGE_PARALLAX_MAX_SHIFT_PX,
+      );
+      const shift = isNear ? -ratio * maxImageShift : 0;
       image.style.willChange = isNear ? 'transform' : 'auto';
       image.style.transform = `translate3d(0, ${shift.toFixed(2)}px, 0) scale(${IMAGE_PARALLAX_SCALE})`;
 
@@ -203,6 +210,7 @@ export function VerticalIndexGallery({
     if (!firstSet || !viewport || !track) return;
 
     const measure = () => {
+      const previousSetHeight = setHeightRef.current;
       setHeightRef.current = firstSet.offsetHeight;
       if (!hasPositionedRef.current) {
         const preferred = track.querySelector<HTMLElement>(
@@ -214,6 +222,11 @@ export function VerticalIndexGallery({
         const card = preferred ?? fallback;
         if (card) centerCard(card, 'auto');
         hasPositionedRef.current = true;
+      } else if (Math.abs(previousSetHeight - setHeightRef.current) > 0.5) {
+        const activeCard = track.querySelector<HTMLElement>(
+          `[data-gallery-key="${activeKeyRef.current}"]`,
+        );
+        if (activeCard) centerCard(activeCard, 'auto');
       }
       updateVisuals();
       viewport.dataset.galleryReady = 'true';
@@ -329,7 +342,13 @@ export function VerticalIndexGallery({
                     />
                     <span className="index-gallery__caption">
                       <span>{shooting.title}</span>
-                      <span>{shooting.year}</span>
+                      <span>
+                        {shooting.year}
+                        <span className="index-gallery__caption-open">
+                          {' / '}
+                          {messages[language].open}
+                        </span>
+                      </span>
                     </span>
                   </motion.article>
                 );
@@ -353,7 +372,10 @@ export function VerticalIndexGallery({
                 initial={{ y: direction * 22, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: direction * -22, opacity: 0 }}
-                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                transition={{
+                  duration: PUBLIC_MOTION.metadata,
+                  ease: PUBLIC_MOTION.easeOut,
+                }}
               >
                 {activeShooting.title}
               </motion.p>
@@ -371,7 +393,10 @@ export function VerticalIndexGallery({
                 initial={{ y: direction * 18, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: direction * -18, opacity: 0 }}
-                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                transition={{
+                  duration: PUBLIC_MOTION.metadata,
+                  ease: PUBLIC_MOTION.easeOut,
+                }}
               >
                 {activeShooting.description?.[language]}
               </motion.p>

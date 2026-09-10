@@ -10,18 +10,24 @@ import {
 } from 'react';
 
 export type IndexViewMode = 'horizontal' | 'vertical';
+export type ActiveIndexItem = { slug: string; key: string };
 
 type IndexViewContextValue = {
   mode: IndexViewMode;
   revision: number;
   isTransitioning: boolean;
+  activeItem: ActiveIndexItem | null;
   toggleMode: () => void;
   completeTransition: (revision: number) => void;
+  setActiveItem: (item: ActiveIndexItem) => void;
 };
 
 const IndexViewContext = createContext<IndexViewContextValue | null>(null);
 
 export function IndexViewProvider({ children }: { children: ReactNode }) {
+  const [activeItem, setActiveItemState] = useState<ActiveIndexItem | null>(
+    null,
+  );
   const [view, setView] = useState<{
     mode: IndexViewMode;
     revision: number;
@@ -51,13 +57,21 @@ export function IndexViewProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const setActiveItem = useCallback((item: ActiveIndexItem) => {
+    setActiveItemState((current) =>
+      current?.slug === item.slug && current.key === item.key ? current : item,
+    );
+  }, []);
+
   const value = useMemo(
     () => ({
       ...view,
+      activeItem,
       toggleMode,
       completeTransition,
+      setActiveItem,
     }),
-    [completeTransition, toggleMode, view],
+    [activeItem, completeTransition, setActiveItem, toggleMode, view],
   );
 
   return (

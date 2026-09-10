@@ -21,8 +21,10 @@ import {
   GALLERY_SCROLL_INERTIAL_LERP,
   GALLERY_SCROLL_MAX_WHEEL_DELTA,
   GALLERY_SCROLL_WHEEL_DRAG_FACTOR,
+  getSafeParallaxShift,
   normalizeWheelDeltaToPixels,
 } from '@/lib/gallery-physics';
+import { PUBLIC_MOTION } from '@/lib/public-motion';
 import { messages } from '@/lib/i18n';
 import { VerticalIndexGallery } from './VerticalIndexGallery';
 
@@ -59,6 +61,7 @@ type CardMetric = {
   key: string;
   center: number;
   halfWidth: number;
+  maxImageShift: number;
   lastShift: number;
   isActive: boolean;
 };
@@ -68,10 +71,13 @@ const MIDDLE_SET_INDEX = Math.floor(REPEATED_SET_COUNT / 2);
 const POSITION_KEY = 'model-portfolio:index-position';
 const HINT_KEY = 'model-portfolio:gallery-used';
 const DRAG_CLICK_THRESHOLD = 6;
+const TOUCH_DRAG_CLICK_THRESHOLD = 10;
 const CENTER_THRESHOLD = 5;
 const CARD_IMAGE_PARALLAX_MAX_SHIFT_PX = 112;
 const CARD_IMAGE_PARALLAX_SCALE = 1.5;
 const TRANSITION_CARD_RADIUS = 2;
+const POINTER_RELEASE_MOMENTUM = 460;
+const TOUCH_RELEASE_MOMENTUM = 360;
 
 function getImageTransform(image: HTMLImageElement): TransitionImageTransform {
   const transform = window.getComputedStyle(image).transform;
@@ -114,6 +120,8 @@ function HorizontalIndexGallery({
   const animationRef = useRef<number | null>(null);
   const metricsRef = useRef<CardMetric[]>([]);
   const activePointerRef = useRef<number | null>(null);
+  const activePointerTypeRef = useRef('mouse');
+  const dragThresholdRef = useRef(DRAG_CLICK_THRESHOLD);
   const dragStartXRef = useRef(0);
   const dragStartTrackRef = useRef(0);
   const lastPointerXRef = useRef(0);
@@ -193,7 +201,7 @@ function HorizontalIndexGallery({
         -1,
         Math.min(1, distance / Math.max(1, influenceRange)),
       );
-      const shift = isActive ? -ratio * CARD_IMAGE_PARALLAX_MAX_SHIFT_PX : 0;
+      const shift = isActive ? -ratio * metric.maxImageShift : 0;
       if (
         !Number.isFinite(metric.lastShift) ||
         Math.abs(shift - metric.lastShift) > 0.35
@@ -319,6 +327,7 @@ function HorizontalIndexGallery({
     const measure = () => {
       // offsetWidth reflects the logical flex layout. scrollWidth also includes
       // Motion's temporary projection overflow while switching orientations.
+      const previousSetWidth = setWidthRef.current;
       setWidthRef.current = firstSet.offsetWidth;
       metricsRef.current = Array.from(
         track.querySelectorAll<HTMLElement>('[data-gallery-card]'),
@@ -332,6 +341,11 @@ function HorizontalIndexGallery({
                 key: element.dataset.galleryKey ?? '',
                 center: element.offsetLeft + element.offsetWidth / 2,
                 halfWidth: element.offsetWidth / 2,
+                maxImageShift: getSafeParallaxShift(
+                  element.offsetWidth,
+                  CARD_IMAGE_PARALLAX_SCALE,
+                  CARD_IMAGE_PARALLAX_MAX_SHIFT_PX,
+                ),
                 lastShift: Number.NaN,
                 isActive: false,
               }
@@ -360,6 +374,18 @@ function HorizontalIndexGallery({
         currentXRef.current = initial;
         targetXRef.current = initial;
         hasPositionedRef.current = true;
+      } else if (Math.abs(previousSetWidth - setWidthRef.current) > 0.5) {
+        const centeredCard = track.querySelector<HTMLElement>(
+          `[data-gallery-key="${centeredCardKeyRef.current}"]`,
+        );
+        if (centeredCard) {
+          const centeredPosition =
+            centeredCard.offsetLeft +
+            centeredCard.offsetWidth / 2 -
+            viewport.clientWidth / 2;
+          currentXRef.current = centeredPosition;
+          targetXRef.current = centeredPosition;
+        }
       }
       normalizePosition();
       updateVisuals();
@@ -440,6 +466,11 @@ function HorizontalIndexGallery({
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!supportsPointer(event) || !viewportRef.current) return;
     activePointerRef.current = event.pointerId;
+    activePointerTypeRef.current = event.pointerType;
+    dragThresholdRef.current =
+      event.pointerType === 'mouse'
+        ? DRAG_CLICK_THRESHOLD
+        : TOUCH_DRAG_CLICK_THRESHOLD;
     dragStartXRef.current = event.clientX;
     dragStartTrackRef.current = targetXRef.current;
     lastPointerXRef.current = event.clientX;
@@ -466,7 +497,8 @@ function HorizontalIndexGallery({
     lastPointerXRef.current = event.clientX;
     lastPointerTimeRef.current = now;
     const dragDelta = event.clientX - dragStartXRef.current;
-    if (Math.abs(dragDelta) >= DRAG_CLICK_THRESHOLD) draggedRef.current = true;
+    if (Math.abs(dragDelta) >= dragThresholdRef.current)
+      draggedRef.current = true;
     currentXRef.current = dragStartTrackRef.current - dragDelta;
     targetXRef.current = currentXRef.current;
     normalizePosition();
@@ -483,8 +515,13 @@ function HorizontalIndexGallery({
 
     if (draggedRef.current) {
       const velocity = Math.max(-1.8, Math.min(1.8, velocityRef.current));
+      const momentum =
+        activePointerTypeRef.current === 'mouse'
+          ? POINTER_RELEASE_MOMENTUM
+          : TOUCH_RELEASE_MOMENTUM;
       targetXRef.current =
-        currentXRef.current + Math.max(-1500, Math.min(1500, velocity * 460));
+        currentXRef.current +
+        Math.max(-1500, Math.min(1500, velocity * momentum));
       startAnimation();
       return;
     }
@@ -583,7 +620,13 @@ function HorizontalIndexGallery({
                     />
                     <span className="index-gallery__caption">
                       <span>{shooting.title}</span>
-                      <span>{shooting.year}</span>
+                      <span>
+                        {shooting.year}
+                        <span className="index-gallery__caption-open">
+                          {' / '}
+                          {messages[language].open}
+                        </span>
+                      </span>
                     </span>
                   </motion.article>
                 );
@@ -610,13 +653,28 @@ function HorizontalIndexGallery({
 }
 
 export function IndexGallery({ shootings }: IndexGalleryProps) {
-  const { mode, revision, isTransitioning, completeTransition } =
-    useIndexView();
+  const {
+    mode,
+    revision,
+    isTransitioning,
+    activeItem: persistedActiveItem,
+    completeTransition,
+    setActiveItem,
+  } = useIndexView();
   const prefersReducedMotion = useReducedMotion();
-  const [activeItem, setActiveItem] = useState(() => ({
-    slug: shootings[0]?.slug ?? '',
-    key: `${MIDDLE_SET_INDEX}-0`,
-  }));
+  const persistedIndex = shootings.findIndex(
+    (shooting) => shooting.slug === persistedActiveItem?.slug,
+  );
+  const activeItem =
+    persistedIndex >= 0
+      ? {
+          slug: shootings[persistedIndex]?.slug ?? '',
+          key: `${MIDDLE_SET_INDEX}-${persistedIndex}`,
+        }
+      : {
+          slug: shootings[0]?.slug ?? '',
+          key: `${MIDDLE_SET_INDEX}-0`,
+        };
   const [transitionCards, setTransitionCards] = useState<TransitionCard[]>([]);
   const isSwitchingModeRef = useRef(isTransitioning);
   const previousModeRef = useRef(mode);
@@ -632,16 +690,22 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
     return () => window.clearTimeout(timeout);
   }, [completeTransition, isTransitioning, prefersReducedMotion, revision]);
 
-  const handleActiveItemChange = useCallback((slug: string, key: string) => {
-    if (isSwitchingModeRef.current) return;
-    const slideIndex = Number(key.split('-')[1]);
-    const canonicalKey = `${MIDDLE_SET_INDEX}-${Number.isFinite(slideIndex) ? slideIndex : 0}`;
-    setActiveItem((current) =>
-      current.slug === slug && current.key === canonicalKey
-        ? current
-        : { slug, key: canonicalKey },
-    );
-  }, []);
+  useEffect(() => {
+    if (!isTransitioning) return;
+    const finishOnResize = () => completeTransition(revision);
+    window.addEventListener('resize', finishOnResize, { once: true });
+    return () => window.removeEventListener('resize', finishOnResize);
+  }, [completeTransition, isTransitioning, revision]);
+
+  const handleActiveItemChange = useCallback(
+    (slug: string, key: string) => {
+      if (isSwitchingModeRef.current) return;
+      const slideIndex = Number(key.split('-')[1]);
+      const canonicalKey = `${MIDDLE_SET_INDEX}-${Number.isFinite(slideIndex) ? slideIndex : 0}`;
+      setActiveItem({ slug, key: canonicalKey });
+    },
+    [setActiveItem],
+  );
 
   useLayoutEffect(() => {
     const previousMode = previousModeRef.current;
@@ -721,6 +785,8 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
       ref={stageRef}
       className={`index-gallery-stage ${isTransitioning && transitionCards.length > 0 ? 'has-transition-cards' : ''}`}
       data-index-view={mode}
+      data-index-revision={revision}
+      data-index-transitioning={isTransitioning ? 'true' : 'false'}
     >
       <div
         className={`index-gallery-view ${mode === 'horizontal' ? 'is-active' : ''} ${mode !== 'horizontal' && isTransitioning ? 'is-transition-source' : ''} ${isTransitioning ? 'is-transitioning' : ''}`}
@@ -770,8 +836,10 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
                 height: card.to.height,
               }}
               transition={{
-                duration: prefersReducedMotion ? 0.12 : 0.92,
-                ease: [0.4, 0, 0.2, 1],
+                duration: prefersReducedMotion
+                  ? PUBLIC_MOTION.reduced
+                  : PUBLIC_MOTION.layout,
+                ease: PUBLIC_MOTION.easeLayout,
               }}
             >
               <motion.div
@@ -780,8 +848,10 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
                 initial={card.fromImage}
                 animate={card.toImage}
                 transition={{
-                  duration: prefersReducedMotion ? 0.12 : 0.92,
-                  ease: [0.4, 0, 0.2, 1],
+                  duration: prefersReducedMotion
+                    ? PUBLIC_MOTION.reduced
+                    : PUBLIC_MOTION.layout,
+                  ease: PUBLIC_MOTION.easeLayout,
                 }}
               />
             </motion.div>

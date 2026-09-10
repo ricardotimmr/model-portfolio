@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { usePathname } from 'next/navigation';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { PUBLIC_MOTION } from '@/lib/public-motion';
 
 const SESSION_KEY = 'model-portfolio:intro-played:v3';
 const TILE_COUNT = 5;
@@ -13,6 +14,7 @@ const GALLERY_READY_TIMEOUT_MS = 2400;
 const IMAGE_READY_TIMEOUT_MS = 1400;
 const EXPAND_DURATION_MS = 1200;
 const SETTLE_DURATION_MS = 180;
+const RESIZE_SETTLE_MS = 140;
 
 type IntroPhase = 'loading' | 'expanding' | 'revealing';
 
@@ -143,10 +145,13 @@ export function Intro() {
   const prefersReducedMotion = useReducedMotion();
   const hasStartedRef = useRef(false);
   const sequenceRef = useRef(0);
+  const viewportWidthRef = useRef(0);
+  const resizeTimeoutRef = useRef<number | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [tiles, setTiles] = useState<IntroTile[]>([]);
   const [loadedCount, setLoadedCount] = useState(0);
   const [phase, setPhase] = useState<IntroPhase>('loading');
+  const [layoutRevision, setLayoutRevision] = useState(0);
 
   useLayoutEffect(() => {
     if (pathname !== '/' || hasStartedRef.current) return;
@@ -157,6 +162,7 @@ export function Intro() {
     if (hasPlayed) return;
 
     hasStartedRef.current = true;
+    viewportWidthRef.current = window.innerWidth;
     window.sessionStorage.setItem(SESSION_KEY, 'true');
     // Session storage and viewport geometry are browser-only external sources.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -165,6 +171,35 @@ export function Intro() {
     setPhase('loading');
     setIsVisible(true);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const handleResize = () => {
+      if (Math.abs(window.innerWidth - viewportWidthRef.current) < 2) return;
+      viewportWidthRef.current = window.innerWidth;
+      sequenceRef.current += 1;
+      if (resizeTimeoutRef.current !== null) {
+        window.clearTimeout(resizeTimeoutRef.current);
+      }
+      resizeTimeoutRef.current = window.setTimeout(() => {
+        resizeTimeoutRef.current = null;
+        setTiles(createLoadingTiles());
+        setLoadedCount(0);
+        setPhase('loading');
+        setLayoutRevision((current) => current + 1);
+      }, RESIZE_SETTLE_MS);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeTimeoutRef.current !== null) {
+        window.clearTimeout(resizeTimeoutRef.current);
+        resizeTimeoutRef.current = null;
+      }
+    };
+  }, [isVisible]);
 
   useEffect(() => {
     if (!isVisible || tiles.length !== TILE_COUNT) return;
@@ -214,7 +249,7 @@ export function Intro() {
     };
     // Tile geometry changes during this sequence without restarting it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isVisible, prefersReducedMotion]);
+  }, [isVisible, layoutRevision, prefersReducedMotion]);
 
   const isExpanded = phase === 'expanding' || phase === 'revealing';
 
@@ -226,7 +261,11 @@ export function Intro() {
           data-intro-phase={phase}
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: prefersReducedMotion ? 0.12 : 0.22 }}
+          transition={{
+            duration: prefersReducedMotion
+              ? PUBLIC_MOTION.reduced
+              : PUBLIC_MOTION.feedback,
+          }}
           aria-hidden="true"
         >
           {tiles.map((tile, index) => (
@@ -244,14 +283,17 @@ export function Intro() {
               }}
               transition={{
                 duration: prefersReducedMotion ? 0 : EXPAND_DURATION_MS / 1000,
-                ease: [0.4, 0, 0.2, 1],
+                ease: PUBLIC_MOTION.easeLayout,
               }}
             >
               <motion.span
                 className="intro__tile-fill"
                 initial={false}
                 animate={{ scale: loadedCount > index ? 1 : 0 }}
-                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                transition={{
+                  duration: PUBLIC_MOTION.micro,
+                  ease: PUBLIC_MOTION.easeOut,
+                }}
               />
               {tile.imageSrc ? (
                 // The cloned frame creates a seamless hand-off to the real gallery.
@@ -263,8 +305,10 @@ export function Intro() {
                   animate={{ opacity: phase === 'loading' ? 0 : 1 }}
                   transition={{
                     delay: prefersReducedMotion ? 0 : 0.14,
-                    duration: prefersReducedMotion ? 0.12 : 0.72,
-                    ease: [0.4, 0, 0.2, 1],
+                    duration: prefersReducedMotion
+                      ? PUBLIC_MOTION.reduced
+                      : 0.72,
+                    ease: PUBLIC_MOTION.easeLayout,
                   }}
                   style={{
                     filter: tile.imageFilter,

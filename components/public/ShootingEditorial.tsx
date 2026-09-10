@@ -91,11 +91,42 @@ export function ShootingEditorial({
 }: ShootingEditorialProps) {
   const { language } = useLanguage();
   const rows = buildEditorialRows(shooting);
+  const credits = [
+    shooting.location
+      ? {
+          label: messages[language].location,
+          value: localize(shooting.location, language),
+        }
+      : null,
+    shooting.photographer
+      ? {
+          label: messages[language].photography,
+          value: shooting.photographer,
+        }
+      : null,
+    shooting.styling
+      ? { label: messages[language].styling, value: shooting.styling }
+      : null,
+    shooting.makeup
+      ? { label: messages[language].makeup, value: shooting.makeup }
+      : null,
+    shooting.hair
+      ? { label: messages[language].hair, value: shooting.hair }
+      : null,
+    shooting.client
+      ? { label: messages[language].client, value: shooting.client }
+      : null,
+    shooting.credits
+      ? { label: messages[language].credits, value: shooting.credits }
+      : null,
+  ].filter((item) => item !== null);
 
   return (
     <main id="main-content" className="page-shell shooting-page">
       <header className="shooting-header">
-        <p className="eyebrow">Series / {shooting.year}</p>
+        <p className="eyebrow">
+          {messages[language].series} / {shooting.year}
+        </p>
         <h1>{shooting.title}</h1>
         <div className="shooting-header__meta">
           {shooting.description ? (
@@ -103,14 +134,16 @@ export function ShootingEditorial({
               {localize(shooting.description, language)}
             </p>
           ) : null}
-          <div className="shooting-header__facts">
-            {shooting.location ? (
-              <span>{localize(shooting.location, language)}</span>
-            ) : null}
-            {shooting.photographer ? (
-              <span>Photography — {shooting.photographer}</span>
-            ) : null}
-          </div>
+          {credits.length > 0 ? (
+            <dl className="shooting-header__facts">
+              {credits.map((credit) => (
+                <div key={credit.label}>
+                  <dt>{credit.label}</dt>
+                  <dd>{credit.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
         </div>
       </header>
 
