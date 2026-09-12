@@ -187,6 +187,122 @@ test('first-session intro remeasures after resize and only plays once', async ({
   }
 });
 
+test('first-session intro expands without layout shift or a largest-fallback image request', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  });
+  await context.addInitScript(() => {
+    type LayoutShiftEntry = PerformanceEntry & {
+      hadRecentInput: boolean;
+      value: number;
+    };
+    const performanceWindow = window as Window & { __introCls?: number };
+    performanceWindow.__introCls = 0;
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries() as LayoutShiftEntry[]) {
+        if (!entry.hadRecentInput) {
+          performanceWindow.__introCls =
+            (performanceWindow.__introCls ?? 0) + entry.value;
+        }
+      }
+    }).observe({ type: 'layout-shift', buffered: true });
+  });
+  const page = await context.newPage();
+  const imageRequests: string[] = [];
+  page.on('request', (request) => {
+    const url = request.url();
+    if (url.includes('/_next/image?')) imageRequests.push(url);
+  });
+
+  try {
+    await page.goto('http://localhost:3000');
+    await expect(page.locator('.intro')).toBeVisible();
+    await expect(page.locator('.intro')).toBeHidden({ timeout: 8000 });
+    await page.waitForTimeout(100);
+
+    const cls = await page.evaluate(
+      () =>
+        (window as Window & { __introCls?: number }).__introCls ??
+        Number.POSITIVE_INFINITY,
+    );
+    expect(cls).toBeLessThan(0.01);
+    expect(
+      imageRequests.some(
+        (url) => new URL(url).searchParams.get('w') === '3840',
+      ),
+    ).toBe(false);
+  } finally {
+    await context.close();
+  }
+});
+
+test('intro remeasures height-only viewport changes before the gallery handoff', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 760 },
+  });
+  const page = await context.newPage();
+
+  try {
+    await page.goto('http://localhost:3000');
+    await expect(page.locator('.intro')).toBeVisible();
+    await page.setViewportSize({ width: 1280, height: 840 });
+    await page.waitForFunction(
+      () =>
+        document.querySelector('.intro')?.getAttribute('data-intro-phase') ===
+        'expanding',
+      undefined,
+      { timeout: 8000 },
+    );
+    await page.waitForTimeout(1250);
+
+    const maximumEdgeDifference = await page.evaluate(() => {
+      const tiles = Array.from(document.querySelectorAll('.intro__tile')).map(
+        (tile) => tile.getBoundingClientRect(),
+      );
+      const cards = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '.index-gallery-view.is-active [data-gallery-card]',
+        ),
+      )
+        .map((card) => {
+          const rect = card.getBoundingClientRect();
+          return {
+            rect,
+            distance: Math.abs(
+              rect.left + rect.width / 2 - window.innerWidth / 2,
+            ),
+          };
+        })
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 5)
+        .sort((a, b) => a.rect.left - b.rect.left)
+        .map(({ rect }) => rect);
+
+      return Math.max(
+        ...tiles.flatMap((tile, index) => {
+          const card = cards[index];
+          if (!card) return [Number.POSITIVE_INFINITY];
+          return [
+            Math.abs(tile.top - card.top),
+            Math.abs(tile.right - card.right),
+            Math.abs(tile.bottom - card.bottom),
+            Math.abs(tile.left - card.left),
+          ];
+        }),
+      );
+    });
+
+    expect(maximumEdgeDifference).toBeLessThan(1);
+    await expect(page.locator('.intro')).toBeHidden({ timeout: 3000 });
+  } finally {
+    await context.close();
+  }
+});
+
 test('lookbook and shooting pages render seeded localized content', async ({
   page,
 }) => {

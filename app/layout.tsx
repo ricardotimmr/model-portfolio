@@ -2,6 +2,7 @@ import '@fontsource-variable/instrument-sans';
 import '@fontsource/instrument-serif/400.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import { IndexViewProvider } from '@/components/providers/IndexViewProvider';
 import { Intro } from '@/components/public/Intro';
 import { Navbar } from '@/components/public/Navbar';
@@ -33,6 +34,7 @@ export default function RootLayout({
             <Intro />
           </IndexViewProvider>
         </LanguageProvider>
+        <SpeedInsights />
       </body>
     </html>
   );

@@ -227,6 +227,7 @@ The production architecture is:
 - handwritten CSS for the public experience
 - Motion for React only where it meaningfully simplifies transitions
 - Vercel for hosting and preview deployments
+- Vercel Speed Insights for production Core Web Vitals monitoring
 - Vercel Blob for photographs
 - Postgres, preferably Neon, for metadata and publication state
 - Drizzle ORM as a lightweight TypeScript database layer

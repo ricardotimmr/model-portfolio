@@ -255,7 +255,7 @@ img {
   background: var(--white);
   contain: layout paint;
   transform: translateZ(0);
-  will-change: top, left, width, height;
+  will-change: transform;
 }
 
 .intro__tile-fill,

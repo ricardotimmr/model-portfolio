@@ -23,8 +23,8 @@ export function ProfilePageContent({ portrait }: ProfilePageContentProps) {
             width={portrait.width}
             height={portrait.height}
             alt={portrait.alt[language]}
-            sizes="(max-width: 760px) 100vw, 52vw"
-            priority
+            sizes="(max-width: 760px) calc(100vw - 48px), 52vw"
+            preload
           />
         </div>
 

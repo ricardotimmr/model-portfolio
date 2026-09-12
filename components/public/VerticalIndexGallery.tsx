@@ -334,9 +334,20 @@ export function VerticalIndexGallery({
                       alt={
                         setIndex === MIDDLE_SET_INDEX ? cover.alt[language] : ''
                       }
-                      sizes="(max-width: 760px) 86vw, (max-width: 1200px) 46vw, 600px"
+                      sizes="(max-width: 760px) 86vw, (max-width: 1200px) 42vw, 600px"
                       quality={68}
-                      loading={setIndex === MIDDLE_SET_INDEX ? 'eager' : 'lazy'}
+                      loading={
+                        isActive && setIndex === MIDDLE_SET_INDEX
+                          ? 'eager'
+                          : 'lazy'
+                      }
+                      fetchPriority={
+                        isActive &&
+                        setIndex === MIDDLE_SET_INDEX &&
+                        slideIndex === activeIndex
+                          ? 'high'
+                          : 'auto'
+                      }
                       decoding="async"
                       draggable={false}
                     />

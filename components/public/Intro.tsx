@@ -37,6 +37,13 @@ type IntroTile = {
 const wait = (milliseconds: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
 
+const waitForPaint = () =>
+  new Promise<void>((resolve) =>
+    window.requestAnimationFrame(() =>
+      window.requestAnimationFrame(() => resolve()),
+    ),
+  );
+
 function createLoadingTiles(): IntroTile[] {
   const totalWidth = TILE_COUNT * LOADER_SIZE + (TILE_COUNT - 1) * LOADER_GAP;
   const startLeft = window.innerWidth / 2 - totalWidth / 2;
@@ -88,10 +95,11 @@ function getGalleryTargets(loadingTiles: IntroTile[]): {
     const image = card.querySelector<HTMLImageElement>('img');
     const computed = image ? window.getComputedStyle(image) : null;
 
-    if (image) {
-      image.loading = 'eager';
-      images.push(image);
-    }
+    // `image.src` is Next Image's largest fallback candidate. Waiting for
+    // `currentSrc` prevents the intro clone from accidentally requesting it
+    // before the browser has selected the responsive source.
+    if (!image?.currentSrc) return null;
+    images.push(image);
 
     return {
       ...loadingTiles[index]!,
@@ -99,7 +107,7 @@ function getGalleryTargets(loadingTiles: IntroTile[]): {
       targetTop: rect.top,
       targetWidth: rect.width,
       targetHeight: rect.height,
-      imageSrc: image?.currentSrc || image?.src,
+      imageSrc: image.currentSrc,
       imageFilter: computed?.filter,
       imageObjectFit: computed?.objectFit,
       imageObjectPosition: computed?.objectPosition,
@@ -108,7 +116,9 @@ function getGalleryTargets(loadingTiles: IntroTile[]): {
     };
   });
 
-  return { tiles, images };
+  if (tiles.some((tile) => tile === null)) return null;
+
+  return { tiles: tiles as IntroTile[], images };
 }
 
 async function waitForGalleryTargets(
@@ -140,12 +150,26 @@ async function waitForImage(image: HTMLImageElement) {
   await Promise.race([ready, wait(IMAGE_READY_TIMEOUT_MS)]);
 }
 
+function getImagePromises(images: HTMLImageElement[]) {
+  const promisesBySource = new Map<string, Promise<void>>();
+
+  return images.map((image) => {
+    const source = image.currentSrc;
+    const existing = promisesBySource.get(source);
+    if (existing) return existing;
+
+    const promise = waitForImage(image);
+    promisesBySource.set(source, promise);
+    return promise;
+  });
+}
+
 export function Intro() {
   const pathname = usePathname();
   const prefersReducedMotion = useReducedMotion();
   const hasStartedRef = useRef(false);
   const sequenceRef = useRef(0);
-  const viewportWidthRef = useRef(0);
+  const viewportSizeRef = useRef({ width: 0, height: 0 });
   const resizeTimeoutRef = useRef<number | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [tiles, setTiles] = useState<IntroTile[]>([]);
@@ -162,7 +186,10 @@ export function Intro() {
     if (hasPlayed) return;
 
     hasStartedRef.current = true;
-    viewportWidthRef.current = window.innerWidth;
+    viewportSizeRef.current = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
     window.sessionStorage.setItem(SESSION_KEY, 'true');
     // Session storage and viewport geometry are browser-only external sources.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -176,8 +203,15 @@ export function Intro() {
     if (!isVisible) return;
 
     const handleResize = () => {
-      if (Math.abs(window.innerWidth - viewportWidthRef.current) < 2) return;
-      viewportWidthRef.current = window.innerWidth;
+      const widthChanged =
+        Math.abs(window.innerWidth - viewportSizeRef.current.width) >= 2;
+      const heightChanged =
+        Math.abs(window.innerHeight - viewportSizeRef.current.height) >= 2;
+      if (!widthChanged && !heightChanged) return;
+      viewportSizeRef.current = {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
       sequenceRef.current += 1;
       if (resizeTimeoutRef.current !== null) {
         window.clearTimeout(resizeTimeoutRef.current);
@@ -206,8 +240,6 @@ export function Intro() {
 
     const sequence = ++sequenceRef.current;
     const isCurrent = () => sequenceRef.current === sequence;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
 
     const run = async () => {
       const targets = await waitForGalleryTargets(tiles, isCurrent);
@@ -217,13 +249,26 @@ export function Intro() {
       }
 
       setTiles(targets.tiles);
-      const imagePromises = targets.images.map(waitForImage);
+      const imagePromises = getImagePromises(targets.images);
 
       for (let index = 0; index < TILE_COUNT; index += 1) {
         await Promise.all([imagePromises[index], wait(LOAD_STEP_MS)]);
         if (!isCurrent()) return;
         setLoadedCount(index + 1);
       }
+
+      const finalTargets = getGalleryTargets(targets.tiles);
+      if (!finalTargets || !isCurrent()) {
+        if (isCurrent()) setIsVisible(false);
+        return;
+      }
+      await Promise.all(getImagePromises(finalTargets.images));
+      if (!isCurrent()) return;
+      setTiles(finalTargets.tiles);
+      // Commit the latest card geometry while the five loader squares remain
+      // visually unchanged, then start the transform on the following paint.
+      await waitForPaint();
+      if (!isCurrent()) return;
 
       if (prefersReducedMotion) {
         setPhase('revealing');
@@ -245,7 +290,6 @@ export function Intro() {
 
     return () => {
       sequenceRef.current += 1;
-      document.body.style.overflow = previousOverflow;
     };
     // Tile geometry changes during this sequence without restarting it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -269,21 +313,24 @@ export function Intro() {
           aria-hidden="true"
         >
           {tiles.map((tile, index) => (
-            <motion.div
+            <div
               className="intro__tile"
               data-intro-tile={tile.id}
               key={tile.id}
-              initial={false}
-              animate={{
-                left: isExpanded ? tile.targetLeft : tile.startLeft,
-                top: isExpanded ? tile.targetTop : tile.startTop,
-                width: isExpanded ? tile.targetWidth : LOADER_SIZE,
-                height: isExpanded ? tile.targetHeight : LOADER_SIZE,
+              style={{
+                left: tile.targetLeft,
+                top: tile.targetTop,
+                width: tile.targetWidth,
+                height: tile.targetHeight,
                 borderColor: isExpanded ? 'rgba(17, 17, 17, 0)' : '#111111',
-              }}
-              transition={{
-                duration: prefersReducedMotion ? 0 : EXPAND_DURATION_MS / 1000,
-                ease: PUBLIC_MOTION.easeLayout,
+                transform: isExpanded
+                  ? 'translate3d(0, 0, 0) scale(1, 1)'
+                  : `translate3d(${tile.startLeft - tile.targetLeft}px, ${tile.startTop - tile.targetTop}px, 0) scale(${LOADER_SIZE / tile.targetWidth}, ${LOADER_SIZE / tile.targetHeight})`,
+                transformOrigin: 'top left',
+                transition:
+                  isExpanded && !prefersReducedMotion
+                    ? `transform ${EXPAND_DURATION_MS}ms var(--ease-layout), border-color ${EXPAND_DURATION_MS}ms var(--ease-layout)`
+                    : 'none',
               }}
             >
               <motion.span
@@ -320,7 +367,7 @@ export function Intro() {
                   }}
                 />
               ) : null}
-            </motion.div>
+            </div>
           ))}
         </motion.div>
       ) : null}

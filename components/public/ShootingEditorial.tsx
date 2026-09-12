@@ -24,6 +24,17 @@ type EditorialRow = {
   photos: PortfolioPhoto[];
 };
 
+function getEditorialImageSizes(kind: EditorialRow['kind']) {
+  if (kind === 'pair') return '(max-width: 760px) calc(100vw - 48px), 40vw';
+  if (kind === 'single-left' || kind === 'single-right') {
+    return '(max-width: 760px) calc(100vw - 48px), 48vw';
+  }
+  if (kind === 'wide') {
+    return '(max-width: 760px) calc(100vw - 48px), 88vw';
+  }
+  return '(max-width: 760px) calc(100vw - 48px), (min-width: 1552px) 1440px, 93vw';
+}
+
 function buildEditorialRows(shooting: Shooting) {
   const photos = shooting.photos.filter((photo) => photo.shootingVisible);
   const rows: EditorialRow[] = [];
@@ -155,18 +166,25 @@ export function ShootingEditorial({
           >
             {row.photos.map((photo, photoIndex) => (
               <Fragment key={photo.id}>
-                <Image
-                  src={photo.src}
-                  width={photo.width}
-                  height={photo.height}
-                  alt={photo.alt[language]}
-                  sizes={
-                    row.kind === 'pair'
-                      ? '(max-width: 700px) 100vw, 45vw'
-                      : '(max-width: 700px) 100vw, 88vw'
-                  }
-                  priority={rowIndex === 0 && photoIndex === 0}
-                />
+                {rowIndex === 0 && photoIndex === 0 ? (
+                  <Image
+                    src={photo.src}
+                    width={photo.width}
+                    height={photo.height}
+                    alt={photo.alt[language]}
+                    sizes={getEditorialImageSizes(row.kind)}
+                    preload
+                  />
+                ) : (
+                  <Image
+                    src={photo.src}
+                    width={photo.width}
+                    height={photo.height}
+                    alt={photo.alt[language]}
+                    sizes={getEditorialImageSizes(row.kind)}
+                    loading="lazy"
+                  />
+                )}
               </Fragment>
             ))}
           </div>

@@ -26,8 +26,9 @@ export function ArchiveGrid({ items }: ArchiveGridProps) {
               width={photo.width}
               height={photo.height}
               alt={photo.alt[language]}
-              sizes="(max-width: 680px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              priority={index < 3}
+              sizes="(max-width: 760px) calc(100vw - 48px), 31vw"
+              loading={index < 3 ? 'eager' : 'lazy'}
+              fetchPriority={index === 0 ? 'high' : 'auto'}
             />
           </span>
           <span className="archive-item__meta">

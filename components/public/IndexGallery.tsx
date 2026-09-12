@@ -610,10 +610,16 @@ function HorizontalIndexGallery({
                       sizes="(max-width: 760px) 76vw, (max-width: 1024px) 52vw, 440px"
                       quality={68}
                       loading={
-                        setIndex === MIDDLE_SET_INDEX ||
-                        setIndex === MIDDLE_SET_INDEX - 1
+                        isActive && setIndex === MIDDLE_SET_INDEX
                           ? 'eager'
                           : 'lazy'
+                      }
+                      fetchPriority={
+                        isActive &&
+                        setIndex === MIDDLE_SET_INDEX &&
+                        galleryKey === centeredCardKey
+                          ? 'high'
+                          : 'auto'
                       }
                       decoding="async"
                       draggable={false}
