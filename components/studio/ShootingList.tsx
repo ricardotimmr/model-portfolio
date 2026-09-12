@@ -31,6 +31,7 @@ export function ShootingList({
               type="button"
               key={value}
               className={filter === value ? 'is-active' : undefined}
+              aria-pressed={filter === value}
               onClick={() => setFilter(value)}
             >
               {value === 'published' ? 'Live' : value}

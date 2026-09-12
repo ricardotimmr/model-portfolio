@@ -191,25 +191,36 @@ export function UploadQueue({ shootingId }: { shootingId: string }) {
       </label>
 
       {items.length ? (
-        <ul className="studio-upload-list" aria-live="polite">
+        <ul className="studio-upload-list">
           {items.map((item) => (
             <li key={item.id} data-status={item.status}>
               <div>
                 <strong>{item.file.name}</strong>
-                <span>{item.message}</span>
+                <span role="status" aria-live="polite" aria-atomic="true">
+                  {item.message}
+                </span>
               </div>
-              <progress max={100} value={item.progress}>
+              <progress
+                max={100}
+                value={item.progress}
+                aria-label={`Upload progress for ${item.file.name}`}
+              >
                 {item.progress}%
               </progress>
               {item.status === 'uploading' ? (
                 <button
                   type="button"
+                  aria-label={`Cancel upload of ${item.file.name}`}
                   onClick={() => controllers.current.get(item.id)?.abort()}
                 >
                   Cancel
                 </button>
               ) : item.status === 'error' || item.status === 'cancelled' ? (
-                <button type="button" onClick={() => retryItem(item)}>
+                <button
+                  type="button"
+                  aria-label={`Retry upload of ${item.file.name}`}
+                  onClick={() => retryItem(item)}
+                >
                   Retry
                 </button>
               ) : null}

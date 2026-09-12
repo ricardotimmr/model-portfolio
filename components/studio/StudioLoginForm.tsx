@@ -70,7 +70,12 @@ export function StudioLoginForm() {
         required
       />
 
-      <p className="studio-login-form__status" role="status" aria-live="polite">
+      <p
+        className="studio-login-form__status"
+        role={error ? 'alert' : 'status'}
+        aria-live={error ? 'assertive' : 'polite'}
+        aria-atomic="true"
+      >
         {error}
       </p>
 

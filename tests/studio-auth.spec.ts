@@ -21,7 +21,7 @@ test.describe('Studio authentication boundary', () => {
     await page.getByLabel('Password').fill('a-password-that-is-wrong');
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await expect(page.getByRole('status')).toHaveText(
+    await expect(page.locator('.studio-login-form__status')).toHaveText(
       'The email or password is incorrect.',
     );
     await expect(page).toHaveURL(/\/studio\/login$/);

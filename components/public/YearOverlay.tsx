@@ -6,12 +6,13 @@ import { useLanguage } from '@/components/providers/LanguageProvider';
 import { yearStatement } from '@/lib/content';
 import { localize, messages } from '@/lib/i18n';
 import { PUBLIC_MOTION } from '@/lib/public-motion';
+import { useModalFocus } from '@/lib/use-modal-focus';
 
 type YearOverlayProps = {
   isOpen: boolean;
   year: number;
   onClose: () => void;
-  triggerRef: RefObject<HTMLButtonElement | null>;
+  triggerRef: RefObject<HTMLElement | null>;
 };
 
 export function YearOverlay({
@@ -24,24 +25,24 @@ export function YearOverlay({
   const { language } = useLanguage();
   const prefersReducedMotion = useReducedMotion();
 
+  useModalFocus({
+    active: isOpen,
+    containerRef: dialogRef,
+    onClose,
+    initialFocusRef: dialogRef,
+    returnFocusRef: triggerRef,
+    inertSelector: '#site-content, .skip-link, .site-nav',
+  });
+
   useEffect(() => {
     if (!isOpen) return;
     const previousOverflow = document.body.style.overflow;
-    const trigger = triggerRef.current;
     document.body.style.overflow = 'hidden';
-    dialogRef.current?.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
 
     return () => {
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', onKeyDown);
-      trigger?.focus();
     };
-  }, [isOpen, onClose, triggerRef]);
+  }, [isOpen]);
 
   return (
     <AnimatePresence>
@@ -66,6 +67,7 @@ export function YearOverlay({
             role="dialog"
             aria-modal="true"
             aria-labelledby="year-overlay-title"
+            aria-describedby="year-overlay-statement"
             tabIndex={-1}
             initial={{ y: 18, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -80,7 +82,7 @@ export function YearOverlay({
             <p id="year-overlay-title" className="eyebrow">
               [{year}]
             </p>
-            <p className="year-overlay__statement">
+            <p id="year-overlay-statement" className="year-overlay__statement">
               {localize(yearStatement, language)}
             </p>
             <button

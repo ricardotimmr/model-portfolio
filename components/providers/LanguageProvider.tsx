@@ -3,6 +3,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -18,9 +19,12 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>('en');
 
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
+
   const setLanguage = (nextLanguage: Language) => {
     setLanguageState(nextLanguage);
-    document.documentElement.lang = nextLanguage;
   };
 
   const value = useMemo(() => ({ language, setLanguage }), [language]);

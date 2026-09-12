@@ -1,14 +1,15 @@
 'use client';
 
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   useCallback,
   useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import type { Shooting } from '@/lib/content';
@@ -46,8 +47,8 @@ export function VerticalIndexGallery({
   isActive,
   isTransitioning,
 }: VerticalIndexGalleryProps) {
-  const router = useRouter();
   const { language } = useLanguage();
+  const prefersReducedMotion = useReducedMotion();
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const firstSetRef = useRef<HTMLDivElement>(null);
@@ -123,7 +124,8 @@ export function VerticalIndexGallery({
         IMAGE_PARALLAX_SCALE,
         IMAGE_PARALLAX_MAX_SHIFT_PX,
       );
-      const shift = isNear ? -ratio * maxImageShift : 0;
+      const shift =
+        isNear && !prefersReducedMotion ? -ratio * maxImageShift : 0;
       image.style.willChange = isNear ? 'transform' : 'auto';
       image.style.transform = `translate3d(0, ${shift.toFixed(2)}px, 0) scale(${IMAGE_PARALLAX_SCALE})`;
 
@@ -152,7 +154,12 @@ export function VerticalIndexGallery({
       setActiveIndex(nextIndex);
       if (isActiveRef.current) onActiveItemChange(slug, key);
     }
-  }, [normalizePosition, onActiveItemChange, shootings.length]);
+  }, [
+    normalizePosition,
+    onActiveItemChange,
+    prefersReducedMotion,
+    shootings.length,
+  ]);
 
   useLayoutEffect(() => {
     isActiveRef.current = isActive;
@@ -172,33 +179,45 @@ export function VerticalIndexGallery({
       if (!viewport) return;
       viewport.scrollTo({
         top: card.offsetTop + card.offsetHeight / 2 - viewport.clientHeight / 2,
-        behavior,
+        behavior: prefersReducedMotion ? 'auto' : behavior,
       });
     },
-    [],
+    [prefersReducedMotion],
   );
 
-  const activateCard = useCallback(
-    (card: HTMLElement) => {
-      const viewport = viewportRef.current;
-      if (!viewport) return;
-      const viewportRect = viewport.getBoundingClientRect();
-      const cardRect = card.getBoundingClientRect();
-      const delta = Math.abs(
-        cardRect.top +
-          cardRect.height / 2 -
-          (viewportRect.top + viewportRect.height / 2),
-      );
-      if (delta <= CENTER_THRESHOLD) {
-        const slug = card.dataset.shootingSlug;
-        if (slug) router.push(`/shoots/${slug}`);
-      } else {
-        centerCard(card, 'smooth');
-      }
+  const onCardClick = (
+    event: ReactMouseEvent<HTMLAnchorElement>,
+    card: HTMLElement,
+  ) => {
+    if (event.detail === 0) {
       markUsed();
-    },
-    [centerCard, markUsed, router],
-  );
+      return;
+    }
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const viewportRect = viewport.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const delta = Math.abs(
+      cardRect.top +
+        cardRect.height / 2 -
+        (viewportRect.top + viewportRect.height / 2),
+    );
+    if (delta > CENTER_THRESHOLD) {
+      event.preventDefault();
+      card.focus({ preventScroll: true });
+      centerCard(card, 'smooth');
+    }
+    markUsed();
+  };
 
   useLayoutEffect(() => {
     // Session storage is an external browser source and is only available after hydration.
@@ -265,22 +284,22 @@ export function VerticalIndexGallery({
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>, card: HTMLElement) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      activateCard(card);
-      return;
-    }
-    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+    const isDirectional = event.key === 'ArrowUp' || event.key === 'ArrowDown';
+    if (!isDirectional && event.key !== 'Home' && event.key !== 'End') return;
     event.preventDefault();
     const direction = event.key === 'ArrowDown' ? 1 : -1;
     const nextIndex =
-      (Number(card.dataset.slideIndex) + direction + shootings.length) %
-      shootings.length;
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? shootings.length - 1
+          : (Number(card.dataset.slideIndex) + direction + shootings.length) %
+            shootings.length;
     const nextCard = trackRef.current?.querySelector<HTMLElement>(
       `[data-set-index="${MIDDLE_SET_INDEX}"][data-slide-index="${nextIndex}"]`,
     );
     if (nextCard) {
-      nextCard.focus();
+      nextCard.focus({ preventScroll: true });
       centerCard(nextCard, 'smooth');
     }
   };
@@ -288,9 +307,12 @@ export function VerticalIndexGallery({
   const activeShooting = shootings[activeIndex] ?? shootings[0];
 
   return (
-    <main
-      id={isActive ? 'main-content' : undefined}
+    <section
+      id="index-gallery-vertical"
       className="index-gallery index-gallery--vertical"
+      aria-label={messages[language].indexGallery}
+      aria-roledescription={messages[language].carousel}
+      aria-describedby="index-gallery-instructions"
     >
       <motion.div
         ref={viewportRef}
@@ -310,10 +332,15 @@ export function VerticalIndexGallery({
                 const cover = getCover(shooting);
                 const galleryKey = `${setIndex}-${slideIndex}`;
                 return (
-                  <motion.article
+                  <Link
                     key={`${setIndex}-${shooting.id}-${slideIndex}`}
+                    href={`/shoots/${shooting.slug}`}
                     tabIndex={
-                      isActive && setIndex === MIDDLE_SET_INDEX ? 0 : -1
+                      isActive &&
+                      setIndex === MIDDLE_SET_INDEX &&
+                      activeKey === galleryKey
+                        ? 0
+                        : -1
                     }
                     className={`index-gallery__card vertical-gallery__card ${activeKey === galleryKey ? 'is-centered' : ''}`}
                     data-gallery-card
@@ -321,9 +348,8 @@ export function VerticalIndexGallery({
                     data-set-index={setIndex}
                     data-slide-index={slideIndex}
                     data-shooting-slug={shooting.slug}
-                    aria-label={`${shooting.title}, ${shooting.year}`}
-                    role="link"
-                    onClick={(event) => activateCard(event.currentTarget)}
+                    aria-label={`${shooting.title}, ${shooting.year}, ${messages[language].itemPosition(slideIndex + 1, shootings.length)}`}
+                    onClick={(event) => onCardClick(event, event.currentTarget)}
                     onKeyDown={(event) => onKeyDown(event, event.currentTarget)}
                   >
                     <Image
@@ -361,7 +387,7 @@ export function VerticalIndexGallery({
                         </span>
                       </span>
                     </span>
-                  </motion.article>
+                  </Link>
                 );
               })}
             </div>
@@ -370,7 +396,7 @@ export function VerticalIndexGallery({
       </motion.div>
 
       {activeShooting ? (
-        <div className="vertical-gallery__metadata" aria-live="polite">
+        <div className="vertical-gallery__metadata">
           <div className="vertical-gallery__panel vertical-gallery__panel--title">
             <AnimatePresence
               initial={false}
@@ -384,7 +410,9 @@ export function VerticalIndexGallery({
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: direction * -22, opacity: 0 }}
                 transition={{
-                  duration: PUBLIC_MOTION.metadata,
+                  duration: prefersReducedMotion
+                    ? PUBLIC_MOTION.reduced
+                    : PUBLIC_MOTION.metadata,
                   ease: PUBLIC_MOTION.easeOut,
                 }}
               >
@@ -405,7 +433,9 @@ export function VerticalIndexGallery({
                 animate={{ y: 0, opacity: 1 }}
                 exit={{ y: direction * -18, opacity: 0 }}
                 transition={{
-                  duration: PUBLIC_MOTION.metadata,
+                  duration: prefersReducedMotion
+                    ? PUBLIC_MOTION.reduced
+                    : PUBLIC_MOTION.metadata,
                   ease: PUBLIC_MOTION.easeOut,
                 }}
               >
@@ -427,6 +457,6 @@ export function VerticalIndexGallery({
           ↑ {messages[language].scroll} ↓
         </p>
       ) : null}
-    </main>
+    </section>
   );
 }

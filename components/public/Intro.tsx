@@ -191,13 +191,25 @@ export function Intro() {
       height: window.innerHeight,
     };
     window.sessionStorage.setItem(SESSION_KEY, 'true');
+    if (prefersReducedMotion) return;
     // Session storage and viewport geometry are browser-only external sources.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTiles(createLoadingTiles());
     setLoadedCount(0);
     setPhase('loading');
     setIsVisible(true);
-  }, [pathname]);
+  }, [pathname, prefersReducedMotion]);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    const dismissForKeyboard = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' && event.key !== 'Escape') return;
+      sequenceRef.current += 1;
+      setIsVisible(false);
+    };
+    document.addEventListener('keydown', dismissForKeyboard);
+    return () => document.removeEventListener('keydown', dismissForKeyboard);
+  }, [isVisible]);
 
   useEffect(() => {
     if (!isVisible) return;

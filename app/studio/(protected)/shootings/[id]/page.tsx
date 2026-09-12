@@ -14,7 +14,7 @@ export default async function StudioShootingPage({
   if (!shooting) notFound();
 
   return (
-    <main id="main-content" className="studio-editor">
+    <main id="main-content" className="studio-editor" tabIndex={-1}>
       <StudioHeader
         eyebrow={`STUDIO / ${shooting.status.toUpperCase()}`}
         title={shooting.title}

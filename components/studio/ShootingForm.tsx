@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { updateShootingMetadataAction } from '@/app/studio/shooting-actions';
 import type { StudioShooting } from '@/db/studio-queries';
 import { initialStudioActionState } from '@/lib/studio-action-state';
@@ -9,6 +9,7 @@ export function ShootingForm({ shooting }: { shooting: StudioShooting }) {
   const [state, setState] = useState(initialStudioActionState);
   const [pending, startTransition] = useTransition();
   const [dirty, setDirty] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const revision = state.revision ?? shooting.revision;
 
   useEffect(() => {
@@ -20,6 +21,13 @@ export function ShootingForm({ shooting }: { shooting: StudioShooting }) {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
+  useEffect(() => {
+    if (state.status !== 'error') return;
+    formRef.current
+      ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+      ?.focus();
+  }, [state]);
+
   const submitAction = (formData: FormData) => {
     startTransition(async () => {
       const nextState = await updateShootingMetadataAction(state, formData);
@@ -30,6 +38,7 @@ export function ShootingForm({ shooting }: { shooting: StudioShooting }) {
 
   return (
     <form
+      ref={formRef}
       className="studio-form studio-metadata-form"
       action={submitAction}
       onChange={() => setDirty(true)}
@@ -135,8 +144,9 @@ export function ShootingForm({ shooting }: { shooting: StudioShooting }) {
         <p
           className="studio-form-status"
           data-status={state.status}
-          role="status"
-          aria-live="polite"
+          role={state.status === 'error' ? 'alert' : 'status'}
+          aria-live={state.status === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
         >
           {dirty && state.status !== 'error'
             ? 'Unsaved changes'

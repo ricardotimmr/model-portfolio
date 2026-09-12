@@ -272,8 +272,10 @@ processing, analytics, and content scheduling.
 4. Phase 3 — integrate image storage and prepare the upload workflow: complete
 5. Phase 4 — implement and verify Studio authentication: complete
 6. Phase 5 — build the shooting editor and publishing workflow: complete
-7. Phase 6 — refine motion, mobile behavior, and visual details
-8. Phase 7 — complete performance, accessibility, SEO, and deployment work
+7. Phase 6 — refine motion, mobile behavior, and visual details: complete
+8. Phase 7 — measure and optimize public performance: complete locally
+9. Phase 8 — complete public and Studio accessibility: complete locally
+10. Phase 9 — verify and complete the production deployment
 
 The public visual experience is validated first. The backend and Studio should
 support that experience rather than determine its design.
@@ -297,6 +299,9 @@ support that experience rather than determine its design.
   cover/INDEX curation, saved draft preview, publishing state transitions, and
   deliberate photo/shooting deletion
 - English as the default language and German as the secondary UI/content language
+- WCAG 2.2-oriented public semantics, keyboard-only INDEX navigation,
+  non-drag gallery controls, modal focus management, localized accessibility
+  names, reduced-motion behavior, and automated axe regressions
 - session intro, dynamic current year, and editorial year overlay
 - local photographs excluded from both Git and Vercel deployment bundles
 - the dependency audit reports four moderate development-tool findings in the
@@ -402,6 +407,7 @@ npm run db:verify
 npm run blob:check
 npm run test:unit
 npm run test:e2e
+npm run accessibility:audit # against a running production build
 npm run build
 ```
 

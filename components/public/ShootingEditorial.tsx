@@ -133,7 +133,7 @@ export function ShootingEditorial({
   ].filter((item) => item !== null);
 
   return (
-    <main id="main-content" className="page-shell shooting-page">
+    <main id="main-content" className="page-shell shooting-page" tabIndex={-1}>
       <header className="shooting-header">
         <p className="eyebrow">
           {messages[language].series} / {shooting.year}
@@ -192,12 +192,23 @@ export function ShootingEditorial({
       </div>
 
       {previous && next ? (
-        <nav className="series-nav" aria-label="Series navigation">
-          <Link href={`/shoots/${previous.slug}`}>
+        <nav
+          className="series-nav"
+          aria-label={messages[language].seriesNavigation}
+        >
+          <Link
+            href={`/shoots/${previous.slug}`}
+            aria-label={`${messages[language].previous}: ${previous.title}`}
+          >
             ← {messages[language].previous}
           </Link>
           <Link href="/archive">{messages[language].backToArchive}</Link>
-          <Link href={`/shoots/${next.slug}`}>{messages[language].next} →</Link>
+          <Link
+            href={`/shoots/${next.slug}`}
+            aria-label={`${messages[language].next}: ${next.title}`}
+          >
+            {messages[language].next} →
+          </Link>
         </nav>
       ) : null}
       {studioPreview ? null : <Footer />}

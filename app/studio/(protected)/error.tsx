@@ -2,7 +2,11 @@
 
 export default function StudioError({ reset }: { reset: () => void }) {
   return (
-    <main id="main-content" className="studio-dashboard studio-route-state">
+    <main
+      id="main-content"
+      className="studio-dashboard studio-route-state"
+      tabIndex={-1}
+    >
       <p className="studio-kicker">Studio error</p>
       <h1>Content could not be loaded.</h1>
       <p>The database or Studio session may be temporarily unavailable.</p>

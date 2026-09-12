@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { createShootingAction } from '@/app/studio/shooting-actions';
 import { createSlug } from '@/lib/slug';
 import { initialStudioActionState } from '@/lib/studio-action-state';
@@ -12,9 +12,21 @@ export function NewShootingForm() {
   );
   const [slug, setSlug] = useState('');
   const [slugEdited, setSlugEdited] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (!state.fieldErrors) return;
+    formRef.current
+      ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+      ?.focus();
+  }, [state]);
 
   return (
-    <form className="studio-form studio-form--new" action={action}>
+    <form
+      ref={formRef}
+      className="studio-form studio-form--new"
+      action={action}
+    >
       <div className="studio-field studio-field--wide">
         <label htmlFor="new-title">Title</label>
         <input
@@ -77,7 +89,12 @@ export function NewShootingForm() {
         <FieldError id="new-year-error" message={state.fieldErrors?.year} />
       </div>
 
-      <p className="studio-form-status" role="status" aria-live="polite">
+      <p
+        className="studio-form-status"
+        role={state.status === 'error' ? 'alert' : 'status'}
+        aria-live={state.status === 'error' ? 'assertive' : 'polite'}
+        aria-atomic="true"
+      >
         {state.message}
       </p>
       <button

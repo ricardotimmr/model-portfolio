@@ -19,7 +19,7 @@ export function Footer() {
       <Link
         className="site-footer__studio"
         href="/studio/login"
-        aria-label="Studio login"
+        aria-label={messages[language].studioLogin}
       >
         ·
       </Link>

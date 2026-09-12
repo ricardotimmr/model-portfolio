@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIndexView } from '@/components/providers/IndexViewProvider';
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import { messages } from '@/lib/i18n';
+import { useModalFocus } from '@/lib/use-modal-focus';
 import { YearOverlay } from './YearOverlay';
 
 export function Navbar() {
@@ -18,8 +19,23 @@ export function Navbar() {
   } = useIndexView();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isYearOpen, setIsYearOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuReturnFocusRef = useRef<HTMLElement | null>(null);
   const yearButtonRef = useRef<HTMLButtonElement>(null);
+  const yearReturnFocusRef = useRef<HTMLElement | null>(null);
   const currentYear = new Date().getFullYear();
+
+  const closeMenu = useCallback(() => setIsMenuOpen(false), []);
+
+  useModalFocus({
+    active: isMenuOpen,
+    containerRef: headerRef,
+    onClose: closeMenu,
+    initialFocusSelector: '.site-nav__link[aria-current="page"]',
+    returnFocusRef: menuReturnFocusRef,
+    inertSelector: '#site-content, .skip-link',
+  });
 
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -44,21 +60,29 @@ export function Navbar() {
     },
   ] as const;
 
-  const closeMenu = () => setIsMenuOpen(false);
-
   return (
     <>
-      <header className={`site-nav ${isMenuOpen ? 'is-menu-open' : ''}`}>
+      <header
+        ref={headerRef}
+        className={`site-nav ${isMenuOpen ? 'is-menu-open' : ''}`}
+        tabIndex={-1}
+      >
         <Link href="/" className="site-nav__brand" onClick={closeMenu}>
           Zoe Schmidt
         </Link>
 
         <button
+          ref={menuButtonRef}
           type="button"
           className="site-nav__menu-trigger"
           aria-expanded={isMenuOpen}
           aria-controls="primary-navigation"
-          onClick={() => setIsMenuOpen((current) => !current)}
+          onClick={() => {
+            if (!isMenuOpen) {
+              menuReturnFocusRef.current = menuButtonRef.current;
+            }
+            setIsMenuOpen((current) => !current);
+          }}
         >
           {isMenuOpen ? messages[language].close : messages[language].menu}
         </button>
@@ -66,7 +90,7 @@ export function Navbar() {
         <nav
           id="primary-navigation"
           className={`site-nav__links ${isMenuOpen ? 'is-open' : ''}`}
-          aria-label="Primary navigation"
+          aria-label={messages[language].primaryNavigation}
         >
           {links.map((link) =>
             link.href === '/' && link.active ? (
@@ -102,7 +126,11 @@ export function Navbar() {
             ),
           )}
 
-          <div className="language-switch" aria-label="Language">
+          <div
+            className="language-switch"
+            role="group"
+            aria-label={messages[language].language}
+          >
             <button
               type="button"
               className={language === 'en' ? 'is-active' : undefined}
@@ -135,6 +163,9 @@ export function Navbar() {
             aria-haspopup="dialog"
             aria-expanded={isYearOpen}
             onClick={() => {
+              yearReturnFocusRef.current = isMenuOpen
+                ? menuButtonRef.current
+                : yearButtonRef.current;
               closeMenu();
               setIsYearOpen(true);
             }}
@@ -148,7 +179,7 @@ export function Navbar() {
         isOpen={isYearOpen}
         year={currentYear}
         onClose={() => setIsYearOpen(false)}
-        triggerRef={yearButtonRef}
+        triggerRef={yearReturnFocusRef}
       />
     </>
   );

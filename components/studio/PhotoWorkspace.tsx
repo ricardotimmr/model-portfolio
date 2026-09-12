@@ -195,6 +195,14 @@ export function PhotoWorkspace({ shooting }: { shooting: StudioShooting }) {
 
   return (
     <>
+      <p
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {message}
+      </p>
       <section className="studio-media-section" aria-labelledby="photos-title">
         <div className="studio-section-heading">
           <div>
@@ -235,9 +243,7 @@ export function PhotoWorkspace({ shooting }: { shooting: StudioShooting }) {
 
         {photos.length ? (
           <div className="studio-section-actions">
-            <p role="status" aria-live="polite">
-              {detailsDirty ? 'Unsaved photo details' : message}
-            </p>
+            <p>{detailsDirty ? 'Unsaved photo details' : message}</p>
             <button
               className="studio-primary-button"
               type="button"
@@ -306,9 +312,7 @@ export function PhotoWorkspace({ shooting }: { shooting: StudioShooting }) {
           </label>
         </div>
         <div className="studio-section-actions">
-          <p role="status" aria-live="polite">
-            {presentationDirty ? 'Unsaved curation changes' : message}
-          </p>
+          <p>{presentationDirty ? 'Unsaved curation changes' : message}</p>
           <button
             className="studio-primary-button"
             type="button"
@@ -394,9 +398,7 @@ export function PhotoWorkspace({ shooting }: { shooting: StudioShooting }) {
             </button>
           )}
         </div>
-        <p className="studio-form-status" role="status" aria-live="polite">
-          {message}
-        </p>
+        <p className="studio-form-status">{message}</p>
       </section>
 
       {status !== 'published' ? (
@@ -460,6 +462,7 @@ function SortablePhoto({
       ref={ref}
       className="studio-photo-card"
       data-dragging={isDragging || undefined}
+      aria-labelledby={`photo-${photo.id}-label`}
     >
       <div
         className="studio-photo-card__image"
@@ -474,8 +477,17 @@ function SortablePhoto({
         />
         <span>{String(index + 1).padStart(2, '0')}</span>
       </div>
-      <div className="studio-photo-card__toolbar">
-        <button ref={handleRef} type="button" disabled={disabled}>
+      <div
+        className="studio-photo-card__toolbar"
+        role="group"
+        aria-label={`Reorder and manage ${photo.originalFilename ?? 'photo'}`}
+      >
+        <button
+          ref={handleRef}
+          type="button"
+          disabled={disabled}
+          aria-label={`Drag ${photo.originalFilename ?? 'photo'} to reorder`}
+        >
           Drag
         </button>
         <button
@@ -494,11 +506,17 @@ function SortablePhoto({
         >
           ↓
         </button>
-        <button type="button" disabled={disabled} onClick={onDelete}>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label={`Delete ${photo.originalFilename ?? 'photo'}`}
+          onClick={onDelete}
+        >
           Delete
         </button>
       </div>
-      <p className="studio-photo-card__file">
+      <p id={`photo-${photo.id}-label`} className="studio-photo-card__file">
+        Position {index + 1} of {count} /{' '}
         {photo.originalFilename ?? 'Uploaded image'} / {photo.width} ×{' '}
         {photo.height}
       </p>
@@ -507,6 +525,7 @@ function SortablePhoto({
           type="radio"
           name="studio-cover"
           checked={isCover}
+          aria-label={`Use ${photo.originalFilename ?? 'photo'} as cover`}
           onChange={onCover}
         />
         <span>Use as cover</span>
@@ -515,17 +534,35 @@ function SortablePhoto({
         <span>Alt text / English</span>
         <textarea
           rows={3}
+          maxLength={500}
+          aria-describedby={`photo-${photo.id}-alt-en-help`}
           value={photo.altEn}
           onChange={(event) => onChange({ altEn: event.currentTarget.value })}
         />
+        <span
+          id={`photo-${photo.id}-alt-en-help`}
+          className="studio-field-help"
+        >
+          Describe the photograph’s useful visual content, not its filename.
+        </span>
       </label>
       <label className="studio-field">
         <span>Alt text / German</span>
         <textarea
           rows={3}
+          maxLength={500}
+          aria-describedby={`photo-${photo.id}-alt-de-help`}
           value={photo.altDe}
           onChange={(event) => onChange({ altDe: event.currentTarget.value })}
         />
+        <span
+          id={`photo-${photo.id}-alt-de-help`}
+          className="studio-field-help"
+        >
+          {photo.altDe.trim()
+            ? 'German translation provided.'
+            : 'Optional translation. English will be used as the fallback.'}
+        </span>
       </label>
       <label className="studio-field">
         <span>Caption / English</span>
@@ -545,7 +582,11 @@ function SortablePhoto({
           }
         />
       </label>
-      <div className="studio-photo-card__checks">
+      <div
+        className="studio-photo-card__checks"
+        role="group"
+        aria-label={`Visibility for ${photo.originalFilename ?? 'photo'}`}
+      >
         <label className="studio-check-field">
           <input
             type="checkbox"

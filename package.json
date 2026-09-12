@@ -26,6 +26,7 @@
     "media:sync": "node scripts/sync-local-media.mjs",
     "performance:audit": "node scripts/audit-public-performance.mjs",
     "performance:audit:interactions": "node scripts/audit-public-interactions.mjs",
+    "accessibility:audit": "node scripts/audit-accessibility.mjs",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "rename": "node scripts/rename-project.mjs"
@@ -49,6 +50,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",

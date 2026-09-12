@@ -3,7 +3,7 @@ import { StudioHeader } from '@/components/studio/StudioHeader';
 
 export default function NewShootingPage() {
   return (
-    <main id="main-content" className="studio-editor">
+    <main id="main-content" className="studio-editor" tabIndex={-1}>
       <StudioHeader
         eyebrow="STUDIO / NEW SHOOTING"
         title="New shooting"

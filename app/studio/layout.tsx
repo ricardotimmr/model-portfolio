@@ -11,5 +11,9 @@ export const metadata: Metadata = {
 };
 
 export default function StudioLayout({ children }: { children: ReactNode }) {
-  return <div className="studio-shell">{children}</div>;
+  return (
+    <div className="studio-shell" lang="en">
+      {children}
+    </div>
+  );
 }

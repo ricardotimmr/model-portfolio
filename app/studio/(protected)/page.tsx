@@ -7,7 +7,7 @@ export default async function StudioPage() {
   const shootings = await getStudioShootingList();
 
   return (
-    <main id="main-content" className="studio-dashboard">
+    <main id="main-content" className="studio-dashboard" tabIndex={-1}>
       <StudioHeader />
       <div className="studio-dashboard__actions">
         <Link className="studio-primary-link" href="/studio/shootings/new">

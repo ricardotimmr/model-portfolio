@@ -14,7 +14,7 @@ export function ArchivePageContent({ items }: ArchivePageContentProps) {
   const { language } = useLanguage();
 
   return (
-    <main id="main-content" className="page-shell archive-page">
+    <main id="main-content" className="page-shell archive-page" tabIndex={-1}>
       <header className="page-heading">
         <p className="eyebrow">01 / {messages[language].archive}</p>
         <h1>{messages[language].archive}</h1>

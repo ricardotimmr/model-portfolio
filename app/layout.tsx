@@ -6,6 +6,8 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { IndexViewProvider } from '@/components/providers/IndexViewProvider';
 import { Intro } from '@/components/public/Intro';
 import { Navbar } from '@/components/public/Navbar';
+import { RouteFocusManager } from '@/components/public/RouteFocusManager';
+import { SkipLink } from '@/components/public/SkipLink';
 import { LanguageProvider } from '@/components/providers/LanguageProvider';
 import './globals.css';
 
@@ -26,12 +28,13 @@ export default function RootLayout({
       <body>
         <LanguageProvider>
           <IndexViewProvider>
-            <a className="skip-link" href="#main-content">
-              Skip to content
-            </a>
+            <SkipLink />
             <Navbar />
-            {children}
-            <Intro />
+            <RouteFocusManager />
+            <div id="site-content">
+              {children}
+              <Intro />
+            </div>
           </IndexViewProvider>
         </LanguageProvider>
         <SpeedInsights />

@@ -8,25 +8,41 @@ const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is missing.');
 
 type ImageAssetRow = {
+  photo_id: string;
   shooting_slug: string;
+  shooting_status: 'draft' | 'published' | 'archived';
+  cover_photo_id: string | null;
+  featured_on_index: boolean;
   original_filename: string | null;
   content_type: string | null;
   file_size: number | null;
   width: number;
   height: number;
   blob_etag: string | null;
+  alt_en: string | null;
+  alt_de: string | null;
+  archive_visible: boolean;
+  shooting_visible: boolean;
 };
 
 const sql = neon(databaseUrl);
 const rows = (await sql`
   select
+    photos.id as photo_id,
     shootings.slug as shooting_slug,
+    shootings.status as shooting_status,
+    shootings.cover_photo_id,
+    shootings.featured_on_index,
     photos.original_filename,
     photos.content_type,
     photos.file_size,
     photos.width,
     photos.height,
-    photos.blob_etag
+    photos.blob_etag,
+    photos.alt_en,
+    photos.alt_de,
+    photos.archive_visible,
+    photos.shooting_visible
   from photos
   inner join shootings on shootings.id = photos.shooting_id
   order by shootings.slug, photos.sort_order
@@ -82,6 +98,15 @@ const largestByPixels = [...rows]
   .sort((a, b) => b.width * b.height - a.width * a.height)
   .slice(0, 5);
 const duplicateEtags = [...etags.values()].filter((count) => count > 1).length;
+const publicRows = rows.filter(
+  (row) =>
+    row.shooting_status === 'published' &&
+    (row.archive_visible ||
+      row.shooting_visible ||
+      (row.featured_on_index && row.cover_photo_id === row.photo_id)),
+);
+const missingEnglishAlt = publicRows.filter((row) => !row.alt_en?.trim());
+const missingGermanAlt = publicRows.filter((row) => !row.alt_de?.trim());
 
 console.log('Public image asset inventory');
 console.log(`- Assets: ${rows.length}`);
@@ -112,6 +137,13 @@ console.log(
 console.log(
   `- Complete stored byte/type/ETag metadata: ${rows.filter((row) => row.file_size && row.content_type && row.blob_etag).length}/${rows.length}`,
 );
+console.log(`- Publicly informative assets: ${publicRows.length}`);
+console.log(
+  `- Public English alt text: ${publicRows.length - missingEnglishAlt.length}/${publicRows.length}`,
+);
+console.log(
+  `- Public German alt translations: ${publicRows.length - missingGermanAlt.length}/${publicRows.length} (${missingGermanAlt.length} use the documented English fallback)`,
+);
 
 console.log('\nLargest files');
 for (const row of largestByBytes) {
@@ -125,4 +157,14 @@ for (const row of largestByPixels) {
   console.log(
     `- ${row.shooting_slug}/${row.original_filename ?? 'unnamed'}: ${row.width}×${row.height} (${formatMegapixels(row.width * row.height)}), ${formatBytes(row.file_size ?? 0)}`,
   );
+}
+
+if (missingEnglishAlt.length > 0) {
+  console.error('\nMissing required English alt text');
+  for (const row of missingEnglishAlt) {
+    console.error(
+      `- ${row.shooting_slug}/${row.original_filename ?? row.photo_id}`,
+    );
+  }
+  process.exitCode = 1;
 }

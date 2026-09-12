@@ -15,7 +15,7 @@ export function ProfilePageContent({ portrait }: ProfilePageContentProps) {
   const { language } = useLanguage();
 
   return (
-    <main id="main-content" className="page-shell profile-page">
+    <main id="main-content" className="page-shell profile-page" tabIndex={-1}>
       <div className="profile-layout">
         <div className="profile-portrait">
           <Image

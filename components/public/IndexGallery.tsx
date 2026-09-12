@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from 'motion/react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   useCallback,
@@ -11,6 +12,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useIndexView } from '@/components/providers/IndexViewProvider';
@@ -111,6 +113,7 @@ function HorizontalIndexGallery({
 }: HorizontalIndexGalleryProps) {
   const router = useRouter();
   const { language } = useLanguage();
+  const prefersReducedMotion = useReducedMotion();
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const firstSetRef = useRef<HTMLDivElement>(null);
@@ -128,6 +131,7 @@ function HorizontalIndexGallery({
   const lastPointerTimeRef = useRef(0);
   const velocityRef = useRef(0);
   const draggedRef = useRef(false);
+  const skipNextClickRef = useRef(false);
   const focusAnimationRef = useRef(false);
   const hasPositionedRef = useRef(false);
   const initialKeyRef = useRef(initialKey);
@@ -201,7 +205,8 @@ function HorizontalIndexGallery({
         -1,
         Math.min(1, distance / Math.max(1, influenceRange)),
       );
-      const shift = isActive ? -ratio * metric.maxImageShift : 0;
+      const shift =
+        isActive && !prefersReducedMotion ? -ratio * metric.maxImageShift : 0;
       if (
         !Number.isFinite(metric.lastShift) ||
         Math.abs(shift - metric.lastShift) > 0.35
@@ -238,7 +243,7 @@ function HorizontalIndexGallery({
         setCenteredSlug(slug);
       }
     }
-  }, [onActiveItemChange]);
+  }, [onActiveItemChange, prefersReducedMotion]);
 
   useEffect(() => {
     isActiveRef.current = isActive;
@@ -286,9 +291,22 @@ function HorizontalIndexGallery({
       focusAnimationRef.current = true;
       targetXRef.current =
         card.offsetLeft + card.offsetWidth / 2 - viewport.clientWidth / 2;
+      if (prefersReducedMotion) {
+        currentXRef.current = targetXRef.current;
+        normalizePosition();
+        updateVisuals();
+        persistPosition();
+        return;
+      }
       startAnimation();
     },
-    [startAnimation],
+    [
+      normalizePosition,
+      persistPosition,
+      prefersReducedMotion,
+      startAnimation,
+      updateVisuals,
+    ],
   );
 
   const activateCard = useCallback(
@@ -526,37 +544,90 @@ function HorizontalIndexGallery({
       return;
     }
 
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+      return;
+
     const card = document
       .elementFromPoint(event.clientX, event.clientY)
       ?.closest<HTMLElement>('[data-gallery-card]');
-    if (card) activateCard(card);
+    if (card) {
+      skipNextClickRef.current = true;
+      window.setTimeout(() => {
+        skipNextClickRef.current = false;
+      });
+      activateCard(card);
+    }
+  };
+
+  const onCardClick = (
+    event: ReactMouseEvent<HTMLAnchorElement>,
+    card: HTMLElement,
+  ) => {
+    if (skipNextClickRef.current || draggedRef.current) {
+      event.preventDefault();
+      skipNextClickRef.current = false;
+      return;
+    }
+    if (event.detail === 0) {
+      markUsed();
+      return;
+    }
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const viewportRect = viewport.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const delta = Math.abs(
+      cardRect.left +
+        cardRect.width / 2 -
+        (viewportRect.left + viewportRect.width / 2),
+    );
+    if (delta > CENTER_THRESHOLD) {
+      event.preventDefault();
+      card.focus({ preventScroll: true });
+      focusCard(card);
+      markUsed();
+    }
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>, card: HTMLElement) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      activateCard(card);
-      return;
-    }
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    const isDirectional =
+      event.key === 'ArrowLeft' || event.key === 'ArrowRight';
+    if (!isDirectional && event.key !== 'Home' && event.key !== 'End') return;
     event.preventDefault();
     const direction = event.key === 'ArrowRight' ? 1 : -1;
     const nextIndex =
-      (Number(card.dataset.slideIndex) + direction + slides.length) %
-      slides.length;
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? slides.length - 1
+          : (Number(card.dataset.slideIndex) + direction + slides.length) %
+            slides.length;
     const nextCard = trackRef.current?.querySelector<HTMLElement>(
       `[data-set-index="${MIDDLE_SET_INDEX}"][data-slide-index="${nextIndex}"]`,
     );
     if (nextCard) {
-      nextCard.focus();
+      nextCard.focus({ preventScroll: true });
       focusCard(nextCard);
     }
   };
 
   return (
-    <main
-      id={isActive ? 'main-content' : undefined}
+    <section
+      id="index-gallery-horizontal"
       className={`index-gallery ${isDragging ? 'is-dragging' : ''}`}
+      aria-label={messages[language].indexGallery}
+      aria-roledescription={messages[language].carousel}
+      aria-describedby="index-gallery-instructions"
     >
       <div
         ref={viewportRef}
@@ -580,10 +651,15 @@ function HorizontalIndexGallery({
               {slides.map(({ shooting, cover }, slideIndex) => {
                 const galleryKey = `${setIndex}-${slideIndex}`;
                 return (
-                  <motion.article
+                  <Link
                     key={`${setIndex}-${shooting.id}-${slideIndex}`}
+                    href={`/shoots/${shooting.slug}`}
                     tabIndex={
-                      isActive && setIndex === MIDDLE_SET_INDEX ? 0 : -1
+                      isActive &&
+                      setIndex === MIDDLE_SET_INDEX &&
+                      centeredCardKey === galleryKey
+                        ? 0
+                        : -1
                     }
                     className={`index-gallery__card ${centeredCardKey === galleryKey ? 'is-centered' : ''}`}
                     data-gallery-card
@@ -591,11 +667,9 @@ function HorizontalIndexGallery({
                     data-set-index={setIndex}
                     data-slide-index={slideIndex}
                     data-shooting-slug={shooting.slug}
-                    aria-label={`${shooting.title}, ${shooting.year}`}
-                    role="link"
+                    aria-label={`${shooting.title}, ${shooting.year}, ${messages[language].itemPosition(slideIndex + 1, slides.length)}`}
                     onClick={(event) => {
-                      if (!draggedRef.current)
-                        activateCard(event.currentTarget);
+                      onCardClick(event, event.currentTarget);
                     }}
                     onKeyDown={(event) => onKeyDown(event, event.currentTarget)}
                   >
@@ -634,7 +708,7 @@ function HorizontalIndexGallery({
                         </span>
                       </span>
                     </span>
-                  </motion.article>
+                  </Link>
                 );
               })}
             </div>
@@ -654,11 +728,12 @@ function HorizontalIndexGallery({
       {showHint ? (
         <p className="index-gallery__hint">‹ {messages[language].drag} ›</p>
       ) : null}
-    </main>
+    </section>
   );
 }
 
 export function IndexGallery({ shootings }: IndexGalleryProps) {
+  const { language } = useLanguage();
   const {
     mode,
     revision,
@@ -685,6 +760,13 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
   const isSwitchingModeRef = useRef(isTransitioning);
   const previousModeRef = useRef(mode);
   const stageRef = useRef<HTMLDivElement>(null);
+  const activeIndex = Math.max(
+    0,
+    shootings.findIndex((shooting) => shooting.slug === activeItem.slug),
+  );
+  const previousShooting =
+    shootings[(activeIndex - 1 + shootings.length) % shootings.length];
+  const nextShooting = shootings[(activeIndex + 1) % shootings.length];
 
   useEffect(() => {
     isSwitchingModeRef.current = isTransitioning;
@@ -786,84 +868,142 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
     previousModeRef.current = mode;
   }, [activeItem.key, isTransitioning, mode, revision]);
 
+  const moveGallerySelection = (direction: -1 | 1) => {
+    const activeView = stageRef.current?.querySelector<HTMLElement>(
+      `.index-gallery-view[data-index-view="${mode}"].is-active`,
+    );
+    const currentCard =
+      activeView?.querySelector<HTMLElement>(
+        `[data-set-index="${MIDDLE_SET_INDEX}"][data-gallery-card].is-centered`,
+      ) ??
+      activeView?.querySelector<HTMLElement>(
+        `[data-set-index="${MIDDLE_SET_INDEX}"][data-gallery-card][tabindex="0"]`,
+      );
+    if (!currentCard) return;
+    currentCard.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key:
+          mode === 'horizontal'
+            ? direction > 0
+              ? 'ArrowRight'
+              : 'ArrowLeft'
+            : direction > 0
+              ? 'ArrowDown'
+              : 'ArrowUp',
+        bubbles: true,
+      }),
+    );
+  };
+
   return (
-    <div
-      ref={stageRef}
-      className={`index-gallery-stage ${isTransitioning && transitionCards.length > 0 ? 'has-transition-cards' : ''}`}
-      data-index-view={mode}
-      data-index-revision={revision}
-      data-index-transitioning={isTransitioning ? 'true' : 'false'}
-    >
+    <main id="main-content" className="index-page" tabIndex={-1}>
+      <h1 className="sr-only">{messages[language].index}</h1>
+      <p id="index-gallery-instructions" className="sr-only">
+        {messages[language].indexInstructions}
+      </p>
       <div
-        className={`index-gallery-view ${mode === 'horizontal' ? 'is-active' : ''} ${mode !== 'horizontal' && isTransitioning ? 'is-transition-source' : ''} ${isTransitioning ? 'is-transitioning' : ''}`}
-        data-index-view="horizontal"
-        aria-hidden={mode !== 'horizontal'}
+        ref={stageRef}
+        className={`index-gallery-stage ${isTransitioning && transitionCards.length > 0 ? 'has-transition-cards' : ''}`}
+        data-index-view={mode}
+        data-index-revision={revision}
+        data-index-transitioning={isTransitioning ? 'true' : 'false'}
       >
-        <HorizontalIndexGallery
-          shootings={shootings}
-          initialKey={activeItem.key}
-          onActiveItemChange={handleActiveItemChange}
-          preferInitialItem={revision > 0}
-          isActive={mode === 'horizontal'}
-          isTransitioning={isTransitioning}
-        />
-      </div>
+        <div
+          className={`index-gallery-view ${mode === 'horizontal' ? 'is-active' : ''} ${mode !== 'horizontal' && isTransitioning ? 'is-transition-source' : ''} ${isTransitioning ? 'is-transitioning' : ''}`}
+          data-index-view="horizontal"
+          aria-hidden={mode !== 'horizontal'}
+          inert={mode !== 'horizontal'}
+        >
+          <HorizontalIndexGallery
+            shootings={shootings}
+            initialKey={activeItem.key}
+            onActiveItemChange={handleActiveItemChange}
+            preferInitialItem={revision > 0}
+            isActive={mode === 'horizontal'}
+            isTransitioning={isTransitioning}
+          />
+        </div>
 
-      <div
-        className={`index-gallery-view ${mode === 'vertical' ? 'is-active' : ''} ${mode !== 'vertical' && isTransitioning ? 'is-transition-source' : ''} ${isTransitioning ? 'is-transitioning' : ''}`}
-        data-index-view="vertical"
-        aria-hidden={mode !== 'vertical'}
-      >
-        <VerticalIndexGallery
-          shootings={shootings}
-          initialKey={activeItem.key}
-          onActiveItemChange={handleActiveItemChange}
-          isActive={mode === 'vertical'}
-          isTransitioning={isTransitioning}
-        />
-      </div>
+        <div
+          className={`index-gallery-view ${mode === 'vertical' ? 'is-active' : ''} ${mode !== 'vertical' && isTransitioning ? 'is-transition-source' : ''} ${isTransitioning ? 'is-transitioning' : ''}`}
+          data-index-view="vertical"
+          aria-hidden={mode !== 'vertical'}
+          inert={mode !== 'vertical'}
+        >
+          <VerticalIndexGallery
+            shootings={shootings}
+            initialKey={activeItem.key}
+            onActiveItemChange={handleActiveItemChange}
+            isActive={mode === 'vertical'}
+            isTransitioning={isTransitioning}
+          />
+        </div>
 
-      {isTransitioning && transitionCards.length > 0 ? (
-        <div className="index-gallery-transition" aria-hidden="true">
-          {transitionCards.map((card) => (
-            <motion.div
-              key={card.key}
-              className="index-gallery-transition__card"
-              initial={{
-                left: card.from.left,
-                top: card.from.top,
-                width: card.from.width,
-                height: card.from.height,
-              }}
-              animate={{
-                left: card.to.left,
-                top: card.to.top,
-                width: card.to.width,
-                height: card.to.height,
-              }}
-              transition={{
-                duration: prefersReducedMotion
-                  ? PUBLIC_MOTION.reduced
-                  : PUBLIC_MOTION.layout,
-                ease: PUBLIC_MOTION.easeLayout,
-              }}
-            >
+        {isTransitioning && transitionCards.length > 0 ? (
+          <div className="index-gallery-transition" aria-hidden="true">
+            {transitionCards.map((card) => (
               <motion.div
-                className="index-gallery-transition__image"
-                style={{ backgroundImage: `url("${card.src}")` }}
-                initial={card.fromImage}
-                animate={card.toImage}
+                key={card.key}
+                className="index-gallery-transition__card"
+                initial={{
+                  left: card.from.left,
+                  top: card.from.top,
+                  width: card.from.width,
+                  height: card.from.height,
+                }}
+                animate={{
+                  left: card.to.left,
+                  top: card.to.top,
+                  width: card.to.width,
+                  height: card.to.height,
+                }}
                 transition={{
                   duration: prefersReducedMotion
                     ? PUBLIC_MOTION.reduced
                     : PUBLIC_MOTION.layout,
                   ease: PUBLIC_MOTION.easeLayout,
                 }}
-              />
-            </motion.div>
-          ))}
+              >
+                <motion.div
+                  className="index-gallery-transition__image"
+                  style={{ backgroundImage: `url("${card.src}")` }}
+                  initial={card.fromImage}
+                  animate={card.toImage}
+                  transition={{
+                    duration: prefersReducedMotion
+                      ? PUBLIC_MOTION.reduced
+                      : PUBLIC_MOTION.layout,
+                    ease: PUBLIC_MOTION.easeLayout,
+                  }}
+                />
+              </motion.div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      {shootings.length > 1 ? (
+        <div className="index-gallery-controls">
+          <button
+            type="button"
+            aria-controls={`index-gallery-${mode}`}
+            aria-label={`${messages[language].previousIndexItem}: ${previousShooting?.title ?? ''}`}
+            disabled={isTransitioning}
+            onClick={() => moveGallerySelection(-1)}
+          >
+            <span aria-hidden="true">←</span>
+          </button>
+          <button
+            type="button"
+            aria-controls={`index-gallery-${mode}`}
+            aria-label={`${messages[language].nextIndexItem}: ${nextShooting?.title ?? ''}`}
+            disabled={isTransitioning}
+            onClick={() => moveGallerySelection(1)}
+          >
+            <span aria-hidden="true">→</span>
+          </button>
         </div>
       ) : null}
-    </div>
+    </main>
   );
 }
