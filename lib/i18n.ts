@@ -39,8 +39,6 @@ export const messages = {
     carousel: 'carousel',
     indexInstructions:
       'Use the left and right arrow keys in horizontal view, or the up and down arrow keys in vertical view. Press Enter to open the focused shooting.',
-    previousIndexItem: 'Previous shooting',
-    nextIndexItem: 'Next shooting',
     itemPosition: (current: number, total: number) => `${current} of ${total}`,
     germanAltFallback: 'German alt text is empty; English will be used.',
     seriesNotFound: 'Series not found.',
@@ -84,8 +82,6 @@ export const messages = {
     carousel: 'Karussell',
     indexInstructions:
       'In der horizontalen Ansicht mit der linken und rechten Pfeiltaste navigieren, in der vertikalen Ansicht mit der oberen und unteren Pfeiltaste. Mit Enter das fokussierte Shooting öffnen.',
-    previousIndexItem: 'Vorheriges Shooting',
-    nextIndexItem: 'Nächstes Shooting',
     itemPosition: (current: number, total: number) => `${current} von ${total}`,
     germanAltFallback:
       'Der deutsche Alternativtext ist leer; Englisch wird verwendet.',

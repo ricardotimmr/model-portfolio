@@ -142,12 +142,18 @@ img {
 
 .site-nav a,
 .site-nav button {
-  display: inline-flex;
   min-width: 24px;
   min-height: 24px;
+  pointer-events: auto;
+}
+
+.site-nav__brand,
+.site-nav__link,
+.site-nav__year,
+.language-switch button {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  pointer-events: auto;
 }
 
 .site-nav__brand,
@@ -545,42 +551,6 @@ img {
   text-transform: uppercase;
   white-space: nowrap;
   animation: hint-float 2.2s ease-in-out infinite;
-}
-
-.index-gallery-controls {
-  position: fixed;
-  z-index: 7;
-  top: 50%;
-  right: max(var(--page-inset), env(safe-area-inset-right));
-  left: max(var(--page-inset), env(safe-area-inset-left));
-  display: flex;
-  justify-content: space-between;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.index-gallery-controls button {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--black);
-  background: rgb(255 255 255 / 90%);
-  color: var(--black);
-  font-size: 16px;
-  place-items: center;
-  opacity: 0.62;
-  pointer-events: auto;
-  transition: opacity var(--motion-micro) var(--ease-standard);
-}
-
-.index-gallery-controls button:hover,
-.index-gallery-controls button:focus-visible {
-  opacity: 1;
-}
-
-.index-gallery-controls button:disabled {
-  opacity: 0.2;
-  pointer-events: none;
 }
 
 .vertical-gallery__viewport {
@@ -2377,11 +2347,5 @@ body:has(.studio-shell) .site-nav {
   .index-gallery__card:focus-visible::after {
     border: 3px solid Highlight;
     box-shadow: none;
-  }
-
-  .index-gallery-controls button {
-    border: 1px solid ButtonText;
-    background: ButtonFace;
-    color: ButtonText;
   }
 }

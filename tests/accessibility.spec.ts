@@ -76,20 +76,6 @@ test('INDEX exposes one logical keyboard stop and Enter opens it', async ({
   await expect(page).toHaveURL(new RegExp(`/shoots/${focusedSlug}$`));
 });
 
-test('INDEX pointer controls move focus without dragging', async ({ page }) => {
-  await page.goto('/');
-  const before = await page
-    .locator('.index-gallery-view.is-active [data-gallery-card][tabindex="0"]')
-    .getAttribute('data-shooting-slug');
-
-  await page.getByRole('button', { name: /Next shooting:/ }).click();
-  const focused = page.locator(
-    '.index-gallery-view.is-active [data-gallery-card]:focus',
-  );
-  await expect(focused).toBeVisible();
-  await expect(focused).not.toHaveAttribute('data-shooting-slug', before ?? '');
-});
-
 test('vertical INDEX uses the same roving keyboard contract', async ({
   page,
 }) => {

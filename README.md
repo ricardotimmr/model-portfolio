@@ -299,9 +299,9 @@ support that experience rather than determine its design.
   cover/INDEX curation, saved draft preview, publishing state transitions, and
   deliberate photo/shooting deletion
 - English as the default language and German as the secondary UI/content language
-- WCAG 2.2-oriented public semantics, keyboard-only INDEX navigation,
-  non-drag gallery controls, modal focus management, localized accessibility
-  names, reduced-motion behavior, and automated axe regressions
+- WCAG 2.2-oriented public semantics, keyboard-only INDEX navigation, modal
+  focus management, localized accessibility names, reduced-motion behavior, and
+  automated axe regressions
 - session intro, dynamic current year, and editorial year overlay
 - local photographs excluded from both Git and Vercel deployment bundles
 - the dependency audit reports four moderate development-tool findings in the

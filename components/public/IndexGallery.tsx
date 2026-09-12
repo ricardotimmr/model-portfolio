@@ -760,13 +760,6 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
   const isSwitchingModeRef = useRef(isTransitioning);
   const previousModeRef = useRef(mode);
   const stageRef = useRef<HTMLDivElement>(null);
-  const activeIndex = Math.max(
-    0,
-    shootings.findIndex((shooting) => shooting.slug === activeItem.slug),
-  );
-  const previousShooting =
-    shootings[(activeIndex - 1 + shootings.length) % shootings.length];
-  const nextShooting = shootings[(activeIndex + 1) % shootings.length];
 
   useEffect(() => {
     isSwitchingModeRef.current = isTransitioning;
@@ -868,33 +861,6 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
     previousModeRef.current = mode;
   }, [activeItem.key, isTransitioning, mode, revision]);
 
-  const moveGallerySelection = (direction: -1 | 1) => {
-    const activeView = stageRef.current?.querySelector<HTMLElement>(
-      `.index-gallery-view[data-index-view="${mode}"].is-active`,
-    );
-    const currentCard =
-      activeView?.querySelector<HTMLElement>(
-        `[data-set-index="${MIDDLE_SET_INDEX}"][data-gallery-card].is-centered`,
-      ) ??
-      activeView?.querySelector<HTMLElement>(
-        `[data-set-index="${MIDDLE_SET_INDEX}"][data-gallery-card][tabindex="0"]`,
-      );
-    if (!currentCard) return;
-    currentCard.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key:
-          mode === 'horizontal'
-            ? direction > 0
-              ? 'ArrowRight'
-              : 'ArrowLeft'
-            : direction > 0
-              ? 'ArrowDown'
-              : 'ArrowUp',
-        bubbles: true,
-      }),
-    );
-  };
-
   return (
     <main id="main-content" className="index-page" tabIndex={-1}>
       <h1 className="sr-only">{messages[language].index}</h1>
@@ -981,29 +947,6 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
           </div>
         ) : null}
       </div>
-
-      {shootings.length > 1 ? (
-        <div className="index-gallery-controls">
-          <button
-            type="button"
-            aria-controls={`index-gallery-${mode}`}
-            aria-label={`${messages[language].previousIndexItem}: ${previousShooting?.title ?? ''}`}
-            disabled={isTransitioning}
-            onClick={() => moveGallerySelection(-1)}
-          >
-            <span aria-hidden="true">←</span>
-          </button>
-          <button
-            type="button"
-            aria-controls={`index-gallery-${mode}`}
-            aria-label={`${messages[language].nextIndexItem}: ${nextShooting?.title ?? ''}`}
-            disabled={isTransitioning}
-            onClick={() => moveGallerySelection(1)}
-          >
-            <span aria-hidden="true">→</span>
-          </button>
-        </div>
-      ) : null}
     </main>
   );
 }
