@@ -13,6 +13,9 @@ export default async function StudioPage() {
         <Link className="studio-primary-link" href="/studio/shootings/new">
           New shooting
         </Link>
+        <Link className="studio-primary-link" href="/studio/settings">
+          Profile & site settings
+        </Link>
       </div>
       <ShootingList shootings={shootings} />
     </main>

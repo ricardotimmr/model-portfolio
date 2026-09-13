@@ -144,11 +144,13 @@ test('mobile index keeps vertical imagery clear and survives orientation changes
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('.site-nav__menu-trigger').click();
-    await page.getByRole('button', { name: 'DE', exact: true }).click();
-    await expect(page.locator('.site-nav__menu-trigger')).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
+    await expect(
+      page.locator('.site-nav').getByRole('button', {
+        name: 'DE',
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await page.keyboard.press('Escape');
     await expect(page.locator('body')).toHaveCSS('overflow', 'visible');
   } finally {
     await context.close();
@@ -380,7 +382,7 @@ test('year overlay restores focus and Studio skips public route motion', async (
   await expect(page.locator('.public-route-transition')).toHaveCount(0);
 });
 
-test('profile portrait reuses a database-backed Blob asset', async ({
+test('profile portrait is served from its database-backed asset', async ({
   page,
 }) => {
   await page.goto('/profile');

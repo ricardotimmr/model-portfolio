@@ -1,15 +1,17 @@
 import type { Metadata } from 'next';
 import { ProfilePageContent } from '@/components/public/ProfilePageContent';
-import { getPublishedProfilePortrait } from '@/db/queries';
-import { profile } from '@/lib/content';
+import { getPublicSiteSettings } from '@/db/site-settings-queries';
 
-export const metadata: Metadata = {
-  title: 'Profile',
-  description: 'Profile and contact information for model Zoe Schmidt.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicSiteSettings();
+  return {
+    title: 'Profile',
+    description:
+      settings.bio?.en ??
+      `Profile and contact information for ${settings.modelName}.`,
+  };
+}
 
-export default async function ProfilePage() {
-  const portrait = await getPublishedProfilePortrait();
-
-  return <ProfilePageContent portrait={portrait ?? profile.portrait} />;
+export default function ProfilePage() {
+  return <ProfilePageContent />;
 }

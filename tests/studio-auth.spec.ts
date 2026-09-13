@@ -57,4 +57,23 @@ test.describe('Studio authentication boundary', () => {
       error: 'Studio authentication is required.',
     });
   });
+
+  test('does not issue anonymous site-media upload tokens', async ({
+    request,
+  }) => {
+    const response = await request.post('/api/studio/site-media', {
+      data: {
+        type: 'blob.generate-client-token',
+        payload: {
+          pathname: 'site/profile/portrait/test.jpg',
+          multipart: false,
+          clientPayload: JSON.stringify({ kind: 'portrait' }),
+        },
+      },
+    });
+    expect(response.status()).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Studio authentication is required.',
+    });
+  });
 });

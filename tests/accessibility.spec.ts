@@ -112,6 +112,10 @@ test('language, skip link, mobile menu, and year dialog manage focus', async ({
 }) => {
   await page.goto('/profile');
 
+  await expect(
+    page.locator('.site-nav').getByRole('button', { name: 'DE', exact: true }),
+  ).toHaveCount(0);
+
   await page.keyboard.press('Tab');
   await expect(
     page.getByRole('link', { name: 'Skip to content' }),
@@ -119,7 +123,10 @@ test('language, skip link, mobile menu, and year dialog manage focus', async ({
   await page.keyboard.press('Enter');
   await expect(page.locator('#main-content')).toBeFocused();
 
-  await page.getByRole('button', { name: 'DE', exact: true }).click();
+  await page
+    .locator('.site-footer')
+    .getByRole('button', { name: 'DE', exact: true })
+    .click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
   await expect(
     page.getByRole('link', { name: 'Zum Inhalt springen' }),

@@ -764,12 +764,21 @@ img {
 
 .profile-portrait {
   overflow: hidden;
+  margin: 0;
   background: var(--off-white);
 }
 
 .profile-portrait img {
   width: 100%;
   height: auto;
+}
+
+.profile-portrait figcaption {
+  padding-top: 10px;
+  color: var(--mid-gray);
+  font-size: var(--text-xs);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .profile-copy {
@@ -817,9 +826,14 @@ img {
 .profile-facts a {
   display: inline-flex;
   min-height: 44px;
-  align-items: center;
+  align-items: flex-start;
   text-decoration: underline;
   text-underline-offset: 4px;
+}
+
+.profile-facts--contact {
+  padding-top: clamp(28px, 4vw, 52px);
+  border-top: 1px solid var(--light-gray);
 }
 
 .shooting-header {
@@ -1005,6 +1019,28 @@ img {
   min-height: 44px;
   margin-left: auto;
   place-items: center end;
+}
+
+.site-footer__language {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.site-footer__language button {
+  min-width: 32px;
+  min-height: 44px;
+  opacity: 0.62;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  transition: opacity var(--motion-micro) var(--ease-standard);
+}
+
+.site-footer__language button:hover,
+.site-footer__language button:focus-visible,
+.site-footer__language button.is-active {
+  opacity: 1;
 }
 
 .site-footer > a {
@@ -1211,8 +1247,48 @@ body:has(.studio-shell) .site-nav {
 
 .studio-dashboard__actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   justify-content: flex-end;
   margin: clamp(58px, 8vw, 112px) 0 26px;
+}
+
+.studio-settings-intro {
+  max-width: 62ch;
+  margin: 42px 0 0;
+  color: #5f5f5a;
+  line-height: 1.5;
+}
+
+.studio-settings-stack {
+  display: grid;
+  gap: 80px;
+  margin-top: 56px;
+}
+
+.studio-settings-stack > .studio-form {
+  display: grid;
+  gap: 34px;
+}
+
+.studio-settings-preview img {
+  width: min(240px, 100%);
+  height: auto;
+  background: #edede8;
+}
+
+.studio-settings-preview p {
+  margin-top: 10px;
+  color: #666;
+  font-size: 12px;
+}
+
+.studio-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin-top: 14px;
 }
 
 .studio-primary-link,

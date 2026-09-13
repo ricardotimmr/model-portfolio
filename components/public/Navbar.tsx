@@ -5,13 +5,15 @@ import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIndexView } from '@/components/providers/IndexViewProvider';
 import { useLanguage } from '@/components/providers/LanguageProvider';
+import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';
 import { messages } from '@/lib/i18n';
 import { useModalFocus } from '@/lib/use-modal-focus';
 import { YearOverlay } from './YearOverlay';
 
 export function Navbar() {
   const pathname = usePathname();
-  const { language, setLanguage } = useLanguage();
+  const { language } = useLanguage();
+  const settings = useSiteSettings();
   const {
     mode: indexViewMode,
     isTransitioning: isIndexTransitioning,
@@ -68,7 +70,7 @@ export function Navbar() {
         tabIndex={-1}
       >
         <Link href="/" className="site-nav__brand" onClick={closeMenu}>
-          Zoe Schmidt
+          {settings.modelName}
         </Link>
 
         <button
@@ -126,36 +128,6 @@ export function Navbar() {
             ),
           )}
 
-          <div
-            className="language-switch"
-            role="group"
-            aria-label={messages[language].language}
-          >
-            <button
-              type="button"
-              className={language === 'en' ? 'is-active' : undefined}
-              aria-pressed={language === 'en'}
-              onClick={() => {
-                setLanguage('en');
-                closeMenu();
-              }}
-            >
-              EN
-            </button>
-            <span aria-hidden="true">/</span>
-            <button
-              type="button"
-              className={language === 'de' ? 'is-active' : undefined}
-              aria-pressed={language === 'de'}
-              onClick={() => {
-                setLanguage('de');
-                closeMenu();
-              }}
-            >
-              DE
-            </button>
-          </div>
-
           <button
             ref={yearButtonRef}
             type="button"
@@ -180,6 +152,7 @@ export function Navbar() {
         year={currentYear}
         onClose={() => setIsYearOpen(false)}
         triggerRef={yearReturnFocusRef}
+        statement={settings.yearStatement}
       />
     </>
   );

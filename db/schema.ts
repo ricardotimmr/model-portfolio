@@ -143,7 +143,111 @@ export const photos = pgTable(
   ],
 );
 
+export const siteSettings = pgTable(
+  'site_settings',
+  {
+    id: text('id').primaryKey(),
+    modelName: text('model_name').notNull(),
+    baseEn: text('base_en'),
+    baseDe: text('base_de'),
+    bioEn: text('bio_en'),
+    bioDe: text('bio_de'),
+    height: text('height'),
+    bust: text('bust'),
+    waist: text('waist'),
+    hips: text('hips'),
+    shoeSize: text('shoe_size'),
+    hairEn: text('hair_en'),
+    hairDe: text('hair_de'),
+    eyesEn: text('eyes_en'),
+    eyesDe: text('eyes_de'),
+    additionalDetailEn: text('additional_detail_en'),
+    additionalDetailDe: text('additional_detail_de'),
+    agencyName: text('agency_name'),
+    agencyLocationEn: text('agency_location_en'),
+    agencyLocationDe: text('agency_location_de'),
+    agencyUrl: text('agency_url'),
+    agencyBookingEmail: text('agency_booking_email'),
+    emphasizeAgency: boolean('emphasize_agency').notNull().default(false),
+    publicEmail: text('public_email'),
+    contactLabelEn: text('contact_label_en'),
+    contactLabelDe: text('contact_label_de'),
+    additionalContactLabelEn: text('additional_contact_label_en'),
+    additionalContactLabelDe: text('additional_contact_label_de'),
+    additionalContactValue: text('additional_contact_value'),
+    additionalContactUrl: text('additional_contact_url'),
+    emailClickable: boolean('email_clickable').notNull().default(false),
+    instagramHandle: text('instagram_handle'),
+    instagramUrl: text('instagram_url'),
+    instagramInFooter: boolean('instagram_in_footer').notNull().default(true),
+    languagesEn: text('languages_en'),
+    languagesDe: text('languages_de'),
+    baseCitiesEn: text('base_cities_en'),
+    baseCitiesDe: text('base_cities_de'),
+    selectedClientsEn: text('selected_clients_en'),
+    selectedClientsDe: text('selected_clients_de'),
+    portraitUrl: text('portrait_url').notNull(),
+    portraitStoragePath: text('portrait_storage_path'),
+    portraitOriginalFilename: text('portrait_original_filename'),
+    portraitContentType: text('portrait_content_type'),
+    portraitFileSize: integer('portrait_file_size'),
+    portraitBlobEtag: text('portrait_blob_etag'),
+    portraitWidth: integer('portrait_width').notNull(),
+    portraitHeight: integer('portrait_height').notNull(),
+    portraitAltEn: text('portrait_alt_en').notNull(),
+    portraitAltDe: text('portrait_alt_de'),
+    portraitPhotographer: text('portrait_photographer'),
+    portraitCredit: text('portrait_credit'),
+    compCardEnabled: boolean('comp_card_enabled').notNull().default(false),
+    compCardUrl: text('comp_card_url'),
+    compCardStoragePath: text('comp_card_storage_path'),
+    compCardOriginalFilename: text('comp_card_original_filename'),
+    compCardContentType: text('comp_card_content_type'),
+    compCardFileSize: integer('comp_card_file_size'),
+    compCardBlobEtag: text('comp_card_blob_etag'),
+    yearStatementEn: text('year_statement_en'),
+    yearStatementDe: text('year_statement_de'),
+    revision: integer('revision').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check('site_settings_primary_check', sql`${table.id} = 'primary'`),
+    check(
+      'site_settings_model_name_check',
+      sql`length(trim(${table.modelName})) > 0`,
+    ),
+    check(
+      'site_settings_portrait_width_check',
+      sql`${table.portraitWidth} > 0`,
+    ),
+    check(
+      'site_settings_portrait_height_check',
+      sql`${table.portraitHeight} > 0`,
+    ),
+    check(
+      'site_settings_portrait_alt_en_check',
+      sql`length(trim(${table.portraitAltEn})) > 0`,
+    ),
+    check(
+      'site_settings_portrait_file_size_check',
+      sql`${table.portraitFileSize} is null or ${table.portraitFileSize} > 0`,
+    ),
+    check(
+      'site_settings_comp_card_file_size_check',
+      sql`${table.compCardFileSize} is null or ${table.compCardFileSize} > 0`,
+    ),
+    check('site_settings_revision_check', sql`${table.revision} >= 0`),
+  ],
+);
+
 export type ShootingRow = typeof shootings.$inferSelect;
 export type NewShootingRow = typeof shootings.$inferInsert;
 export type PhotoRow = typeof photos.$inferSelect;
 export type NewPhotoRow = typeof photos.$inferInsert;
+export type SiteSettingsRow = typeof siteSettings.$inferSelect;
+export type NewSiteSettingsRow = typeof siteSettings.$inferInsert;

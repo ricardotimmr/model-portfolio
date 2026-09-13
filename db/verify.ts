@@ -187,6 +187,36 @@ async function verifyDuplicatePhotoOrder(sql: NeonQueryFunction<false, false>) {
   throw new Error('Duplicate photo sort orders were not rejected.');
 }
 
+async function verifyPrimarySiteSettings(sql: NeonQueryFunction<false, false>) {
+  const rows = (await sql`
+    select id, model_name, portrait_url, portrait_width, portrait_height,
+      portrait_alt_en, revision
+    from site_settings
+  `) as Array<{
+    id: string;
+    model_name: string;
+    portrait_url: string;
+    portrait_width: number;
+    portrait_height: number;
+    portrait_alt_en: string;
+    revision: number;
+  }>;
+
+  const row = rows[0];
+  if (
+    rows.length !== 1 ||
+    row?.id !== 'primary' ||
+    !row.model_name.trim() ||
+    !row.portrait_url ||
+    row.portrait_width <= 0 ||
+    row.portrait_height <= 0 ||
+    !row.portrait_alt_en.trim() ||
+    row.revision < 0
+  ) {
+    throw new Error('The primary site settings singleton is invalid.');
+  }
+}
+
 async function verify() {
   loadEnvConfig(process.cwd());
 
@@ -202,9 +232,10 @@ async function verify() {
   await verifyPublicFilters(sql);
   await verifyDuplicateSlug(sql);
   await verifyDuplicatePhotoOrder(sql);
+  await verifyPrimarySiteSettings(sql);
 
   console.log(
-    'Database verification passed: publication filters, photo visibility, cover ownership, unique slugs, and unique photo ordering.',
+    'Database verification passed: publication filters, photo visibility, cover ownership, unique slugs, unique photo ordering, and the primary site settings singleton.',
   );
 }
 

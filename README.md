@@ -115,10 +115,16 @@ PROFILE is a professional model profile, not a long-form about page. It includes
 - hair, eyes, and shoe size
 - agency or representation
 - email and Instagram
-- an optional downloadable comp card in a later phase
+- an optional downloadable Comp Card when a file or public URL is available
 
 Empty fields are not rendered. The portrait and details sit side by side on
 desktop, while the text follows the image on mobile.
+
+The public identity, bilingual biography, measurements, representation, contact
+details, portrait, Comp Card, Instagram visibility, and current-year statement
+are maintained from the authenticated Studio. English remains the default
+language; the EN/DE control appears in the footer on PROFILE, LOOKBOOK, and
+shooting pages. INDEX intentionally remains free of a footer and language UI.
 
 ### Current-year overlay
 
@@ -210,6 +216,12 @@ The Studio workflow is:
 7. preview the draft
 8. publish or unpublish it
 
+The separate `Profile & site settings` area maintains the public model profile,
+contact and representation details, bilingual year statement, profile portrait,
+and optional Comp Card. Every update is validated and authorized server-side,
+uses revision checks to prevent stale overwrites, and invalidates the public
+cache after a successful save.
+
 Published content automatically appears on its shooting page, in LOOKBOOK, and—if
 selected—on INDEX. Drafts remain publicly inaccessible.
 
@@ -238,8 +250,9 @@ Postgres through a server-only Drizzle query layer. The queries are cached for o
 hour and the shooting routes are statically generated from published database
 records. All 24 shooting photographs live in a public Vercel Blob store; Postgres
 holds their canonical URLs, storage paths, dimensions, MIME types, sizes, and
-ETags. The profile portrait deliberately reuses one of those assets instead of
-uploading a duplicate.
+ETags. The initial profile portrait reuses one of those assets. Future portrait
+replacements and Comp Cards use dedicated `site/profile/` Blob paths so Studio
+can replace them without deleting or modifying a shooting photograph.
 
 Motion for React is imported from `motion/react` for the session intro,
 current-year overlay, and subtle page transitions. The more complex gallery motion
@@ -260,9 +273,9 @@ The first complete release includes:
 - performance, accessibility, SEO, and social-sharing foundations
 - deployment to Vercel
 
-Possible later additions include lookbook filters, shared-element transitions, a
-comp-card download, multiple administrators, private draft images, advanced image
-processing, analytics, and content scheduling.
+Possible later additions include lookbook filters, shared-element transitions,
+multiple administrators, private draft images, advanced image processing,
+analytics, and content scheduling.
 
 ## Roadmap
 

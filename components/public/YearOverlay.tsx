@@ -3,7 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, type RefObject } from 'react';
 import { useLanguage } from '@/components/providers/LanguageProvider';
-import { yearStatement } from '@/lib/content';
+import type { LocalizedText } from '@/lib/content';
 import { localize, messages } from '@/lib/i18n';
 import { PUBLIC_MOTION } from '@/lib/public-motion';
 import { useModalFocus } from '@/lib/use-modal-focus';
@@ -13,6 +13,7 @@ type YearOverlayProps = {
   year: number;
   onClose: () => void;
   triggerRef: RefObject<HTMLElement | null>;
+  statement: LocalizedText;
 };
 
 export function YearOverlay({
@@ -20,6 +21,7 @@ export function YearOverlay({
   year,
   onClose,
   triggerRef,
+  statement,
 }: YearOverlayProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
@@ -83,7 +85,7 @@ export function YearOverlay({
               [{year}]
             </p>
             <p id="year-overlay-statement" className="year-overlay__statement">
-              {localize(yearStatement, language)}
+              {localize(statement, language)}
             </p>
             <button
               className="year-overlay__close"

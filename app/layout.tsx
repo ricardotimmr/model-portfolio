@@ -9,33 +9,42 @@ import { Navbar } from '@/components/public/Navbar';
 import { RouteFocusManager } from '@/components/public/RouteFocusManager';
 import { SkipLink } from '@/components/public/SkipLink';
 import { LanguageProvider } from '@/components/providers/LanguageProvider';
+import { SiteSettingsProvider } from '@/components/providers/SiteSettingsProvider';
+import { getPublicSiteSettings } from '@/db/site-settings-queries';
 import './globals.css';
 
-export const metadata: Metadata = {
-  metadataBase: new URL('https://zoe-schmidt.com'),
-  title: {
-    default: 'Zoe Schmidt — Model Portfolio',
-    template: '%s — Zoe Schmidt',
-  },
-  description: 'The model portfolio of Zoe Schmidt, based in Wiehl, Germany.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicSiteSettings();
+  return {
+    metadataBase: new URL('https://zoe-schmidt.com'),
+    title: {
+      default: `${settings.modelName} — Model Portfolio`,
+      template: `%s — ${settings.modelName}`,
+    },
+    description:
+      settings.bio?.en ?? `The model portfolio of ${settings.modelName}.`,
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
+  const settings = await getPublicSiteSettings();
   return (
     <html lang="en">
       <body>
         <LanguageProvider>
-          <IndexViewProvider>
-            <SkipLink />
-            <Navbar />
-            <RouteFocusManager />
-            <div id="site-content">
-              {children}
-              <Intro />
-            </div>
-          </IndexViewProvider>
+          <SiteSettingsProvider settings={settings}>
+            <IndexViewProvider>
+              <SkipLink />
+              <Navbar />
+              <RouteFocusManager />
+              <div id="site-content">
+                {children}
+                <Intro />
+              </div>
+            </IndexViewProvider>
+          </SiteSettingsProvider>
         </LanguageProvider>
         <SpeedInsights />
       </body>

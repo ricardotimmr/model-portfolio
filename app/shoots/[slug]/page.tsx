@@ -6,6 +6,7 @@ import {
   getPublishedShootingNavigation,
   getPublishedShootingSlugs,
 } from '@/db/queries';
+import { getPublicSiteSettings } from '@/db/site-settings-queries';
 import { getCover } from '@/lib/content';
 
 type ShootingPageProps = { params: Promise<{ slug: string }> };
@@ -21,12 +22,13 @@ export async function generateMetadata({
 }: ShootingPageProps): Promise<Metadata> {
   const shooting = await getPublishedShootingBySlug((await params).slug);
   if (!shooting) return {};
+  const settings = await getPublicSiteSettings();
   const cover = getCover(shooting);
   return {
     title: shooting.title,
     description:
       shooting.description?.en ??
-      `${shooting.title}, ${shooting.year} — Zoe Schmidt portfolio series.`,
+      `${shooting.title}, ${shooting.year} — ${settings.modelName} portfolio series.`,
     openGraph: cover
       ? {
           images: [

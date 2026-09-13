@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
         pathname: '/shootings/**',
         search: '',
       },
+      {
+        protocol: 'https',
+        hostname: '*.public.blob.vercel-storage.com',
+        port: '',
+        pathname: '/site/**',
+        search: '',
+      },
     ],
   },
   turbopack: {

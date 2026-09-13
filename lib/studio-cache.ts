@@ -21,3 +21,9 @@ export function invalidatePublicPortfolio({
   if (oldSlug) revalidatePath(`/shoots/${oldSlug}`);
   if (slug && slug !== oldSlug) revalidatePath(`/shoots/${slug}`);
 }
+
+export function invalidateSiteSettings() {
+  revalidateTag('site-settings', { expire: 0 });
+  revalidateTag('profile', { expire: 0 });
+  revalidatePath('/', 'layout');
+}
