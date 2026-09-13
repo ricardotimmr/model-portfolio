@@ -2216,6 +2216,12 @@ body:has(.studio-shell) .site-nav {
     padding-right: 8px;
   }
 
+  .index-gallery:not(.index-gallery--vertical) .index-gallery__card {
+    isolation: isolate;
+    clip-path: inset(0);
+    transform: translateZ(0);
+  }
+
   .index-gallery__action {
     top: auto;
     bottom: max(56px, calc(env(safe-area-inset-bottom) + 40px));

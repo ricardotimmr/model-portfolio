@@ -51,6 +51,23 @@ test('database-backed index keeps both gallery modes interactive', async ({
   await expect(
     page.getByRole('button', { name: 'Show horizontal index' }),
   ).toBeEnabled({ timeout: 3000 });
+  const verticalViewport = verticalView.locator('.vertical-gallery__viewport');
+  const verticalBeforeWheel = await verticalViewport.evaluate(
+    (viewport) => viewport.scrollTop,
+  );
+  await page.mouse.move(720, 500);
+  await page.mouse.wheel(0, 320);
+  await page.waitForTimeout(32);
+  const verticalDuringMomentum = await verticalViewport.evaluate(
+    (viewport) => viewport.scrollTop,
+  );
+  await page.waitForTimeout(180);
+  const verticalAfterMomentum = await verticalViewport.evaluate(
+    (viewport) => viewport.scrollTop,
+  );
+  expect(verticalDuringMomentum).toBeGreaterThan(verticalBeforeWheel);
+  expect(verticalAfterMomentum).toBeGreaterThan(verticalDuringMomentum);
+
   await page.getByRole('button', { name: 'Show horizontal index' }).click();
   await expect(horizontalView).toHaveClass(/is-active/);
 
@@ -130,6 +147,17 @@ test('mobile index keeps vertical imagery clear and survives orientation changes
         '.index-gallery-view[data-index-view="horizontal"] [data-gallery-card].is-centered',
       )
       .getAttribute('data-shooting-slug');
+    const horizontalMobileCards = page.locator(
+      '.index-gallery-view[data-index-view="horizontal"] [data-gallery-card]',
+    );
+    await expect(horizontalMobileCards.first()).toHaveCSS(
+      'clip-path',
+      'inset(0px)',
+    );
+    await expect(horizontalMobileCards.first()).toHaveCSS(
+      'isolation',
+      'isolate',
+    );
 
     await page.setViewportSize({ width: 844, height: 390 });
     await expect(

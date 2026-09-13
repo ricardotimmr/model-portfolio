@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -14,7 +15,13 @@ import {
 import { useLanguage } from '@/components/providers/LanguageProvider';
 import type { Shooting } from '@/lib/content';
 import { getCover } from '@/lib/content';
-import { getSafeParallaxShift } from '@/lib/gallery-physics';
+import {
+  GALLERY_SCROLL_INERTIAL_LERP,
+  GALLERY_SCROLL_MAX_WHEEL_DELTA,
+  GALLERY_SCROLL_WHEEL_DRAG_FACTOR,
+  getSafeParallaxShift,
+  normalizeWheelDeltaToPixels,
+} from '@/lib/gallery-physics';
 import { messages } from '@/lib/i18n';
 import { PUBLIC_MOTION } from '@/lib/public-motion';
 
@@ -53,7 +60,10 @@ export function VerticalIndexGallery({
   const trackRef = useRef<HTMLDivElement>(null);
   const firstSetRef = useRef<HTMLDivElement>(null);
   const setHeightRef = useRef(0);
-  const animationRef = useRef<number | null>(null);
+  const targetYRef = useRef(0);
+  const scrollAnimationRef = useRef<number | null>(null);
+  const visualUpdateRef = useRef<number | null>(null);
+  const focusAnimationRef = useRef(false);
   const activeKeyRef = useRef(initialKey);
   const hasPositionedRef = useRef(false);
   const hasUsedGalleryRef = useRef(false);
@@ -91,7 +101,11 @@ export function VerticalIndexGallery({
       next -= setHeight;
       contentCenter -= setHeight;
     }
-    if (Math.abs(next - viewport.scrollTop) > 0.5) viewport.scrollTop = next;
+    const adjustment = next - viewport.scrollTop;
+    if (Math.abs(adjustment) > 0.5) {
+      viewport.scrollTop = next;
+      targetYRef.current += adjustment;
+    }
   }, []);
 
   const updateVisuals = useCallback(() => {
@@ -166,24 +180,120 @@ export function VerticalIndexGallery({
   }, [isActive]);
 
   const requestUpdate = useCallback(() => {
-    if (animationRef.current !== null) return;
-    animationRef.current = window.requestAnimationFrame(() => {
-      animationRef.current = null;
+    if (visualUpdateRef.current !== null) return;
+    visualUpdateRef.current = window.requestAnimationFrame(() => {
+      visualUpdateRef.current = null;
       updateVisuals();
     });
   }, [updateVisuals]);
+
+  const runScrollAnimation = useCallback(
+    function animateVerticalScroll() {
+      const viewport = viewportRef.current;
+      if (!viewport) {
+        scrollAnimationRef.current = null;
+        return;
+      }
+
+      const distance = targetYRef.current - viewport.scrollTop;
+      if (Math.abs(distance) <= 0.15) {
+        viewport.scrollTop = targetYRef.current;
+        focusAnimationRef.current = false;
+        normalizePosition();
+        updateVisuals();
+        scrollAnimationRef.current = null;
+        return;
+      }
+
+      const lerp = focusAnimationRef.current
+        ? GALLERY_SCROLL_INERTIAL_LERP * 0.62
+        : GALLERY_SCROLL_INERTIAL_LERP;
+      viewport.scrollTop += distance * lerp;
+      normalizePosition();
+      updateVisuals();
+      scrollAnimationRef.current = window.requestAnimationFrame(
+        animateVerticalScroll,
+      );
+    },
+    [normalizePosition, updateVisuals],
+  );
+
+  const startScrollAnimation = useCallback(() => {
+    if (scrollAnimationRef.current === null) {
+      scrollAnimationRef.current =
+        window.requestAnimationFrame(runScrollAnimation);
+    }
+  }, [runScrollAnimation]);
+
+  const stopScrollAnimation = useCallback(() => {
+    if (scrollAnimationRef.current !== null) {
+      window.cancelAnimationFrame(scrollAnimationRef.current);
+      scrollAnimationRef.current = null;
+    }
+    const viewport = viewportRef.current;
+    if (viewport) targetYRef.current = viewport.scrollTop;
+    focusAnimationRef.current = false;
+  }, []);
 
   const centerCard = useCallback(
     (card: HTMLElement, behavior: ScrollBehavior) => {
       const viewport = viewportRef.current;
       if (!viewport) return;
-      viewport.scrollTo({
-        top: card.offsetTop + card.offsetHeight / 2 - viewport.clientHeight / 2,
-        behavior: prefersReducedMotion ? 'auto' : behavior,
-      });
+      const target =
+        card.offsetTop + card.offsetHeight / 2 - viewport.clientHeight / 2;
+      if (prefersReducedMotion || behavior === 'auto') {
+        stopScrollAnimation();
+        targetYRef.current = target;
+        viewport.scrollTop = target;
+        return;
+      }
+      focusAnimationRef.current = true;
+      targetYRef.current = target;
+      startScrollAnimation();
     },
-    [prefersReducedMotion],
+    [prefersReducedMotion, startScrollAnimation, stopScrollAnimation],
   );
+
+  const handleWheel = useCallback(
+    (event: globalThis.WheelEvent) => {
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+      const pageSize = viewport.clientHeight || window.innerHeight;
+      const dx = normalizeWheelDeltaToPixels(
+        event.deltaX,
+        event.deltaMode,
+        pageSize,
+      );
+      const dy = normalizeWheelDeltaToPixels(
+        event.deltaY,
+        event.deltaMode,
+        pageSize,
+      );
+      const delta = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
+      if (!delta) return;
+
+      event.preventDefault();
+      if (scrollAnimationRef.current === null) {
+        targetYRef.current = viewport.scrollTop;
+      }
+      focusAnimationRef.current = false;
+      targetYRef.current +=
+        Math.max(
+          -GALLERY_SCROLL_MAX_WHEEL_DELTA,
+          Math.min(GALLERY_SCROLL_MAX_WHEEL_DELTA, delta),
+        ) * GALLERY_SCROLL_WHEEL_DRAG_FACTOR;
+      markUsed();
+      startScrollAnimation();
+    },
+    [markUsed, startScrollAnimation],
+  );
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    viewport.addEventListener('wheel', handleWheel, { passive: false });
+    return () => viewport.removeEventListener('wheel', handleWheel);
+  }, [handleWheel]);
 
   const onCardClick = (
     event: ReactMouseEvent<HTMLAnchorElement>,
@@ -220,8 +330,6 @@ export function VerticalIndexGallery({
   };
 
   useLayoutEffect(() => {
-    // Session storage is an external browser source and is only available after hydration.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowHint(window.sessionStorage.getItem(HINT_KEY) !== 'true');
     const firstSet = firstSetRef.current;
     const viewport = viewportRef.current;
@@ -259,12 +367,12 @@ export function VerticalIndexGallery({
       delete viewport.dataset.galleryReady;
       observer.disconnect();
       window.removeEventListener('resize', measure);
-      if (animationRef.current !== null) {
-        window.cancelAnimationFrame(animationRef.current);
-        animationRef.current = null;
-      }
+      stopScrollAnimation();
+      if (visualUpdateRef.current !== null)
+        window.cancelAnimationFrame(visualUpdateRef.current);
+      visualUpdateRef.current = null;
     };
-  }, [centerCard, updateVisuals]);
+  }, [centerCard, stopScrollAnimation, updateVisuals]);
 
   useLayoutEffect(() => {
     if (isActive || isTransitioning) return;
@@ -279,6 +387,9 @@ export function VerticalIndexGallery({
   }, [centerCard, initialKey, isActive, isTransitioning, updateVisuals]);
 
   const onScroll = () => {
+    if (scrollAnimationRef.current === null && viewportRef.current) {
+      targetYRef.current = viewportRef.current.scrollTop;
+    }
     markUsed();
     requestUpdate();
   };
@@ -319,6 +430,7 @@ export function VerticalIndexGallery({
         className="vertical-gallery__viewport"
         layoutScroll
         onScroll={onScroll}
+        onPointerDown={stopScrollAnimation}
       >
         <div ref={trackRef} className="vertical-gallery__track">
           {Array.from({ length: REPEATED_SET_COUNT }, (_, setIndex) => (
