@@ -98,6 +98,57 @@ test('index mode change has a short stable reduced-motion path', async ({
   ).toHaveClass(/is-active/);
 });
 
+test('index transition waits for slow target-image decoding before handoff', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  });
+  await context.addInitScript(() => {
+    window.sessionStorage.setItem('model-portfolio:intro-played:v3', 'true');
+    window.sessionStorage.setItem('model-portfolio:gallery-used', 'true');
+    HTMLImageElement.prototype.decode = function delayedDecode() {
+      return new Promise<void>((resolve) => window.setTimeout(resolve, 1350));
+    };
+  });
+  const page = await context.newPage();
+
+  try {
+    await page.goto('http://localhost:3000');
+    const stage = page.locator('.index-gallery-stage');
+    const expectDelayedHandoff = async (
+      buttonName: string,
+      targetMode: 'horizontal' | 'vertical',
+    ) => {
+      await page.getByRole('button', { name: buttonName }).click();
+      await expect(stage).toHaveAttribute('data-index-view', targetMode);
+
+      await page.waitForTimeout(1100);
+      await expect(stage).toHaveAttribute('data-index-transitioning', 'true');
+      await expect(stage).toHaveAttribute('data-index-handoff-ready', 'false');
+      await expect(page.locator('.index-gallery-transition')).toBeVisible();
+
+      await expect(stage).toHaveAttribute('data-index-handoff-ready', 'true', {
+        timeout: 1000,
+      });
+      await expect(stage).toHaveAttribute('data-index-transitioning', 'false', {
+        timeout: 1000,
+      });
+      await expect(page.locator('.index-gallery-transition')).toHaveCount(0);
+    };
+
+    await expectDelayedHandoff('Show vertical index', 'vertical');
+    await expectDelayedHandoff('Show horizontal index', 'horizontal');
+    await expect(
+      page.locator(
+        '.index-gallery-view.is-active [data-gallery-card].is-centered img',
+      ),
+    ).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
 test('mobile index keeps vertical imagery clear and survives orientation changes', async ({
   browser,
 }) => {

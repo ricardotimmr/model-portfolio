@@ -80,6 +80,53 @@ const CARD_IMAGE_PARALLAX_SCALE = 1.5;
 const TRANSITION_CARD_RADIUS = 2;
 const POINTER_RELEASE_MOMENTUM = 460;
 const TOUCH_RELEASE_MOMENTUM = 360;
+const TARGET_IMAGE_DECODE_TIMEOUT_MS = 4000;
+const TRANSITION_HANDOFF_FADE_MS = 120;
+
+function prepareImageForPaint(image: HTMLImageElement) {
+  image.loading = 'eager';
+
+  return new Promise<void>((resolve) => {
+    let settled = false;
+    let decodeStarted = false;
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      image.removeEventListener('load', startDecode);
+      image.removeEventListener('error', resolveOnce);
+    };
+    const resolveOnce = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+    const startDecode = () => {
+      if (decodeStarted || settled) return;
+      decodeStarted = true;
+      image.removeEventListener('load', startDecode);
+
+      if (!image.naturalWidth) {
+        resolveOnce();
+        return;
+      }
+
+      void image
+        .decode()
+        .catch(() => undefined)
+        .finally(resolveOnce);
+    };
+    const timeout = window.setTimeout(
+      resolveOnce,
+      TARGET_IMAGE_DECODE_TIMEOUT_MS,
+    );
+
+    if (image.complete) startDecode();
+    else {
+      image.addEventListener('load', startDecode, { once: true });
+      image.addEventListener('error', resolveOnce, { once: true });
+    }
+  });
+}
 
 function getImageTransform(image: HTMLImageElement): TransitionImageTransform {
   const transform = window.getComputedStyle(image).transform;
@@ -757,19 +804,38 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
           key: `${MIDDLE_SET_INDEX}-0`,
         };
   const [transitionCards, setTransitionCards] = useState<TransitionCard[]>([]);
+  const [isHandoffReady, setIsHandoffReady] = useState(false);
   const isSwitchingModeRef = useRef(isTransitioning);
   const previousModeRef = useRef(mode);
   const stageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     isSwitchingModeRef.current = isTransitioning;
-    if (!isTransitioning) return;
-    const timeout = window.setTimeout(
-      () => completeTransition(revision),
-      prefersReducedMotion ? 160 : 1050,
-    );
-    return () => window.clearTimeout(timeout);
-  }, [completeTransition, isTransitioning, prefersReducedMotion, revision]);
+  }, [isTransitioning]);
+
+  useEffect(() => {
+    if (!isTransitioning || !isHandoffReady) return;
+
+    let completionTimeout: number | undefined;
+    const paintFrame = window.requestAnimationFrame(() => {
+      completionTimeout = window.setTimeout(
+        () => completeTransition(revision),
+        prefersReducedMotion ? 16 : TRANSITION_HANDOFF_FADE_MS,
+      );
+    });
+
+    return () => {
+      window.cancelAnimationFrame(paintFrame);
+      if (completionTimeout !== undefined)
+        window.clearTimeout(completionTimeout);
+    };
+  }, [
+    completeTransition,
+    isHandoffReady,
+    isTransitioning,
+    prefersReducedMotion,
+    revision,
+  ]);
 
   useEffect(() => {
     if (!isTransitioning) return;
@@ -791,6 +857,7 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
   useLayoutEffect(() => {
     const previousMode = previousModeRef.current;
     if (previousMode === mode || !isTransitioning) return;
+    let cancelled = false;
     const stage = stageRef.current;
     const sourceLayer = stage?.querySelector<HTMLElement>(
       `[data-index-view="${previousMode}"]`,
@@ -821,6 +888,9 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
       ? targetCards.indexOf(targetCenter)
       : -1;
     const nextCards: TransitionCard[] = [];
+    const targetImages: HTMLImageElement[] = [];
+
+    setIsHandoffReady(false);
 
     if (sourceCenterIndex >= 0 && targetCenterIndex >= 0) {
       for (
@@ -833,6 +903,7 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
         const sourceImage = source?.querySelector<HTMLImageElement>('img');
         const targetImage = target?.querySelector<HTMLImageElement>('img');
         if (!source || !target || !sourceImage || !targetImage) continue;
+        targetImages.push(targetImage);
         const sourceRect = source.getBoundingClientRect();
         const targetRect = target.getBoundingClientRect();
         nextCards.push({
@@ -859,7 +930,28 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
     // Both persistent galleries are measured before the browser paints the new mode.
     setTransitionCards(nextCards);
     previousModeRef.current = mode;
-  }, [activeItem.key, isTransitioning, mode, revision]);
+
+    const animationDurationMs = Math.ceil(
+      (prefersReducedMotion ? PUBLIC_MOTION.reduced : PUBLIC_MOTION.layout) *
+        1000,
+    );
+    let animationTimeout: number | undefined;
+    const animationFinished = new Promise<void>((resolve) => {
+      animationTimeout = window.setTimeout(resolve, animationDurationMs);
+    });
+    const targetImagesReady = Promise.all(
+      targetImages.map(prepareImageForPaint),
+    );
+
+    void Promise.all([animationFinished, targetImagesReady]).then(() => {
+      if (!cancelled) setIsHandoffReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+      if (animationTimeout !== undefined) window.clearTimeout(animationTimeout);
+    };
+  }, [activeItem.key, isTransitioning, mode, prefersReducedMotion, revision]);
 
   return (
     <main id="main-content" className="index-page" tabIndex={-1}>
@@ -869,10 +961,11 @@ export function IndexGallery({ shootings }: IndexGalleryProps) {
       </p>
       <div
         ref={stageRef}
-        className={`index-gallery-stage ${isTransitioning && transitionCards.length > 0 ? 'has-transition-cards' : ''}`}
+        className={`index-gallery-stage ${isTransitioning && transitionCards.length > 0 ? 'has-transition-cards' : ''} ${isTransitioning && isHandoffReady ? 'is-handoff-ready' : ''}`}
         data-index-view={mode}
         data-index-revision={revision}
         data-index-transitioning={isTransitioning ? 'true' : 'false'}
+        data-index-handoff-ready={isHandoffReady ? 'true' : 'false'}
       >
         <div
           className={`index-gallery-view ${mode === 'horizontal' ? 'is-active' : ''} ${mode !== 'horizontal' && isTransitioning ? 'is-transition-source' : ''} ${isTransitioning ? 'is-transitioning' : ''}`}

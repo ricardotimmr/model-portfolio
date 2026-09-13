@@ -349,12 +349,24 @@ img {
   visibility: hidden;
 }
 
+.index-gallery-stage.has-transition-cards.is-handoff-ready
+  .index-gallery-view.is-transitioning.is-active
+  .index-gallery__card {
+  visibility: visible;
+}
+
 .index-gallery-transition {
   position: fixed;
   z-index: 3;
   inset: 0;
   overflow: hidden;
+  opacity: 1;
   pointer-events: none;
+  transition: opacity 90ms var(--ease-standard);
+}
+
+.index-gallery-stage.is-handoff-ready .index-gallery-transition {
+  opacity: 0;
 }
 
 .index-gallery-transition__card {
